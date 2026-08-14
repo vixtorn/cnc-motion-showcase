@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
 import { CNC_MODEL_URL } from '../animation/cncAnimationConfig'
@@ -6,13 +6,19 @@ import { useCncMotionCalibration } from '../animation/useCncMotionCalibration'
 import type { CncMotionController } from '../animation/useCncMotionCalibration'
 import { useCncHomeTransforms } from '../hooks/useCncHomeTransforms'
 import { useCncNodes } from '../hooks/useCncNodes'
+import {
+  useWorkpieceTransition,
+  type WorkpieceTransitionController,
+} from '../animation/useWorkpieceTransition'
 import type { CncInspection, HomeTransform } from '../types/cnc'
 
 interface CNCModelProps {
   onInspection: (inspection: CncInspection) => void
 }
 
-export type CNCModelHandle = CncMotionController
+export interface CNCModelHandle
+  extends CncMotionController,
+    WorkpieceTransitionController {}
 
 const auditedScenes = new WeakSet<object>()
 
@@ -42,14 +48,32 @@ export const CNCModel = forwardRef<CNCModelHandle, CNCModelProps>(function CNCMo
     homeTransforms,
     invalidate,
   })
+  const workpiece = useWorkpieceTransition({
+    raw: inspection.nodes.workpiece,
+    finished: inspection.nodes.finishedWorkpiece,
+    invalidate,
+  })
+  const controller = useMemo<CNCModelHandle>(
+    () => ({
+      ...motion,
+      ...workpiece,
+      restoreAllImmediate: () => {
+        motion.restoreAllImmediate()
+        workpiece.resetWorkpieceImmediate()
+      },
+      resetAllAssemblies: () => {
+        motion.resetAllAssemblies()
+        workpiece.resetWorkpieceImmediate()
+      },
+      getMotionSnapshot: () => ({
+        ...motion.getMotionSnapshot(),
+        workpiece: workpiece.getWorkpieceSnapshot(),
+      }),
+    }),
+    [motion, workpiece],
+  )
 
-  useImperativeHandle(ref, () => motion, [motion])
-
-  useLayoutEffect(() => {
-    if (inspection.nodes.workpiece) inspection.nodes.workpiece.visible = true
-    if (inspection.nodes.finishedWorkpiece) inspection.nodes.finishedWorkpiece.visible = false
-    invalidate()
-  }, [inspection.nodes.finishedWorkpiece, inspection.nodes.workpiece, invalidate])
+  useImperativeHandle(ref, () => controller, [controller])
 
   useEffect(() => {
     onInspection(inspection)

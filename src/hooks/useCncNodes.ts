@@ -203,6 +203,9 @@ const createInteriorBounds = (nodes: CncNodes) => {
   return bounds.isEmpty() ? null : bounds
 }
 
+const createObjectBounds = (object: Object3D | null) =>
+  object ? new Box3().setFromObject(object) : null
+
 const buildInspection = (scene: Object3D): CncInspection => {
   const findNode = (name: string) => scene.getObjectByName(name) ?? null
   const nodes: CncNodes = {
@@ -231,6 +234,7 @@ const buildInspection = (scene: Object3D): CncInspection => {
   const checks: CncNodeChecks = {
     mainChuck: nodes.mainChuck !== null,
     workpiece: nodes.workpiece !== null,
+    finishedWorkpiece: nodes.finishedWorkpiece !== null,
     tailstock: nodes.tailstock !== null,
     turretCarriage: nodes.turretCarriage !== null,
     turretIndex: nodes.turretIndex !== null,
@@ -289,6 +293,14 @@ const buildInspection = (scene: Object3D): CncInspection => {
     warnings.push('Workpiece_Raw is not a descendant of MainChuck_Assembly.')
   }
 
+  if (
+    nodes.mainChuck &&
+    nodes.finishedWorkpiece &&
+    !isDescendantOf(nodes.finishedWorkpiece, nodes.mainChuck)
+  ) {
+    warnings.push('Workpiece_Finished_Camshaft is not a descendant of MainChuck_Assembly.')
+  }
+
   if (nodes.turretCarriage && nodes.turretIndex && !isDescendantOf(nodes.turretIndex, nodes.turretCarriage)) {
     warnings.push('Turret_IndexAssembly is not a descendant of Turret_CarriageAssembly.')
   }
@@ -336,6 +348,7 @@ const buildInspection = (scene: Object3D): CncInspection => {
   const tailstockQuillDiagnostics = createPbrMaterialDiagnostics(nodes.tailstockQuill)
   const representativeMetalDiagnostics = [
     nodes.workpiece,
+    nodes.finishedWorkpiece,
     nodes.tailstockQuill,
     nodes.dumanBadge,
     nodes.mainChuckBody,
@@ -399,6 +412,7 @@ const buildInspection = (scene: Object3D): CncInspection => {
     checks,
     bounds: new Box3().setFromObject(scene),
     interiorBounds: createInteriorBounds(nodes),
+    finishedWorkpieceBounds: createObjectBounds(nodes.finishedWorkpiece),
     dumanBadgeBounds,
     dumanBadgeDiagnostic,
     auditRows,

@@ -50,7 +50,7 @@ function App() {
           CM
         </div>
         <div>
-          <p className="eyebrow">Interactive engineering study · Phase 02C</p>
+          <p className="eyebrow">Interactive engineering study · Phase 02D</p>
           <h1>CNC Motion Showcase</h1>
         </div>
       </header>
@@ -90,6 +90,11 @@ function App() {
           onTestInteriorCamera={() => sceneRef.current?.goToInterior()}
           onTestDumanCamera={() => sceneRef.current?.testDumanCamera()}
           onTestInteriorToDumanPath={() => sceneRef.current?.testInteriorToDumanPath()}
+          onTestFinishedPartCamera={() => sceneRef.current?.testFinishedPartCamera()}
+          onStartCoolant={() => sceneRef.current?.startCoolant()}
+          onStopCoolant={() => sceneRef.current?.stopCoolant()}
+          onTestWorkpieceTransition={() => sceneRef.current?.testWorkpieceTransition()}
+          onResetMachining={() => sceneRef.current?.resetMachining()}
           onToggleChuck={() => {
             if (isChuckTesting) {
               stopChuckDiagnostic()

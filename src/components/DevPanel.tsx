@@ -17,6 +17,11 @@ interface DevPanelProps {
   onTestInteriorCamera: () => void
   onTestDumanCamera: () => void
   onTestInteriorToDumanPath: () => void
+  onTestFinishedPartCamera: () => void
+  onStartCoolant: () => void
+  onStopCoolant: () => void
+  onTestWorkpieceTransition: () => void
+  onResetMachining: () => void
   onToggleChuck: () => void
   onSetTailstockContact: (contact: boolean) => void
   onResetTailstock: () => void
@@ -35,6 +40,7 @@ interface DevPanelProps {
 const NODE_LABELS: Array<[NodeCheckKey, string]> = [
   ['mainChuck', 'MAIN CHUCK'],
   ['workpiece', 'WORKPIECE'],
+  ['finishedWorkpiece', 'FINISHED WORKPIECE'],
   ['tailstock', 'TAILSTOCK'],
   ['turretCarriage', 'TURRET CARRIAGE'],
   ['turretIndex', 'TURRET INDEX'],
@@ -54,6 +60,11 @@ export function DevPanel({
   onTestInteriorCamera,
   onTestDumanCamera,
   onTestInteriorToDumanPath,
+  onTestFinishedPartCamera,
+  onStartCoolant,
+  onStopCoolant,
+  onTestWorkpieceTransition,
+  onResetMachining,
   onToggleChuck,
   onSetTailstockContact,
   onResetTailstock,
@@ -99,7 +110,7 @@ export function DevPanel({
       <div className="calibration-panel">
         <section className="calibration-group choreography-controls">
           <div className="choreography-heading">
-            <h2>PHASE 2C CHOREOGRAPHY</h2>
+            <h2>PHASE 2D CHOREOGRAPHY</h2>
             <span className={`sequence-state is-${sequenceState}`}>
               STATE: {sequenceState.toUpperCase()}
             </span>
@@ -133,6 +144,35 @@ export function DevPanel({
         </section>
 
         <fieldset className="calibration-diagnostics" disabled={diagnosticsDisabled}>
+        <section className="calibration-group">
+          <h2>PHASE 2D MACHINING</h2>
+          <div className="calibration-actions">
+            <button type="button" disabled={!inspection} onClick={onStartCoolant}>
+              [ START COOLANT ]
+            </button>
+            <button type="button" disabled={!inspection} onClick={onStopCoolant}>
+              [ STOP COOLANT ]
+            </button>
+            <button
+              type="button"
+              disabled={!checks?.workpiece || !checks.finishedWorkpiece}
+              onClick={onTestWorkpieceTransition}
+            >
+              [ TEST RAW TO FINISHED ]
+            </button>
+            <button
+              type="button"
+              disabled={!inspection?.finishedWorkpieceBounds}
+              onClick={onTestFinishedPartCamera}
+            >
+              [ TEST FINISHED PART CAMERA ]
+            </button>
+            <button type="button" disabled={!inspection} onClick={onResetMachining}>
+              [ RESET MACHINING ]
+            </button>
+          </div>
+        </section>
+
         <section className="calibration-group">
           <h2>CAMERA PATH CALIBRATION</h2>
           <div className="calibration-actions">

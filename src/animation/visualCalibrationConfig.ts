@@ -23,6 +23,10 @@ export const VISUAL_CALIBRATION = {
     interiorTargetOffset: [0, -2, 0] as [number, number, number],
     interiorFitScale: 0.28,
     interiorFov: 58,
+    finishedInspectionDirection: [1, 0.45, 0.6] as [number, number, number],
+    finishedInspectionTargetOffset: [0, 1.5, 0] as [number, number, number],
+    finishedInspectionDistance: 44,
+    finishedInspectionFov: 44,
     waypoints: {
       doorApproach: {
         position: [96, 138, 49] as [number, number, number],

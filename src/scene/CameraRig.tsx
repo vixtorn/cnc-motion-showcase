@@ -12,6 +12,7 @@ export type CameraWaypointName =
   | 'doorApproach'
   | 'doorThreshold'
   | 'interior'
+  | 'finishedInspection'
   | 'exitThreshold'
   | 'dumanApproach'
   | 'dumanFinal'
@@ -45,6 +46,7 @@ interface CameraRigProps {
   bounds: Box3 | null
   dumanBadgeBounds: Box3 | null
   interiorBounds: Box3 | null
+  finishedWorkpieceBounds: Box3 | null
 }
 
 interface CameraPreset {
@@ -67,6 +69,12 @@ const DUMAN_CAMERA_DIRECTION = new Vector3(...cameraCalibration.dumanDirection).
 const DUMAN_TARGET_OFFSET = new Vector3(...cameraCalibration.dumanTargetOffset)
 const INTERIOR_CAMERA_DIRECTION = new Vector3(...cameraCalibration.interiorDirection).normalize()
 const INTERIOR_TARGET_OFFSET = new Vector3(...cameraCalibration.interiorTargetOffset)
+const FINISHED_INSPECTION_DIRECTION = new Vector3(
+  ...cameraCalibration.finishedInspectionDirection,
+).normalize()
+const FINISHED_INSPECTION_TARGET_OFFSET = new Vector3(
+  ...cameraCalibration.finishedInspectionTargetOffset,
+)
 
 const presetDiagnostic = (preset: CameraPreset) => ({
   position: preset.position.toArray().map((value) => Number(value.toFixed(4))),
@@ -76,7 +84,7 @@ const presetDiagnostic = (preset: CameraPreset) => ({
 })
 
 export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function CameraRig(
-  { bounds, dumanBadgeBounds, interiorBounds },
+  { bounds, dumanBadgeBounds, interiorBounds, finishedWorkpieceBounds },
   ref,
 ) {
   const camera = useThree((state) => state.camera)
@@ -156,6 +164,22 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     }
   }, [camera, heroPreset, interiorBounds, size.height, size.width])
 
+  const finishedInspectionPreset = useMemo<CameraPreset | null>(() => {
+    if (!finishedWorkpieceBounds || !heroPreset) return null
+
+    const target = finishedWorkpieceBounds
+      .getCenter(new Vector3())
+      .add(FINISHED_INSPECTION_TARGET_OFFSET)
+    const distance = cameraCalibration.finishedInspectionDistance
+    return {
+      target,
+      position: target.clone().addScaledVector(FINISHED_INSPECTION_DIRECTION, distance),
+      distance,
+      radius: heroPreset.radius,
+      fov: cameraCalibration.finishedInspectionFov,
+    }
+  }, [finishedWorkpieceBounds, heroPreset])
+
   const calibratedWaypointPresets = useMemo(() => {
     if (!heroPreset) return null
 
@@ -185,10 +209,17 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     (name: CameraWaypointName): CameraPreset | null => {
       if (name === 'hero') return heroPreset
       if (name === 'interior') return interiorPreset
+      if (name === 'finishedInspection') return finishedInspectionPreset
       if (name === 'dumanFinal') return dumanPreset
       return calibratedWaypointPresets?.[name] ?? null
     },
-    [calibratedWaypointPresets, dumanPreset, heroPreset, interiorPreset],
+    [
+      calibratedWaypointPresets,
+      dumanPreset,
+      finishedInspectionPreset,
+      heroPreset,
+      interiorPreset,
+    ],
   )
 
   const configureClipping = useCallback(
@@ -423,6 +454,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
       'doorApproach',
       'doorThreshold',
       'interior',
+      'finishedInspection',
       'exitThreshold',
       'dumanApproach',
       'dumanFinal',

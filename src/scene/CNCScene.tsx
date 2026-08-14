@@ -23,6 +23,7 @@ import {
 } from './CameraRig'
 import { CNCModel, type CNCModelHandle } from './CNCModel'
 import { SceneLighting } from './SceneLighting'
+import { CoolantEffect, type CoolantEffectHandle } from '../effects/CoolantEffect'
 
 export interface CNCSceneHandle {
   resetCamera: () => void
@@ -31,6 +32,11 @@ export interface CNCSceneHandle {
   goToCameraWaypoint: (name: CameraWaypointName) => void
   testDumanCamera: () => void
   testInteriorToDumanPath: () => void
+  testFinishedPartCamera: () => void
+  startCoolant: () => void
+  stopCoolant: () => void
+  testWorkpieceTransition: () => void
+  resetMachining: () => void
   startChuckTest: () => void
   stopChuckTest: () => void
   setTailstockContact: (contact: boolean) => void
@@ -59,10 +65,12 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
 ) {
   const cameraRigRef = useRef<CameraRigHandle>(null)
   const modelRef = useRef<CNCModelHandle>(null)
+  const coolantRef = useRef<CoolantEffectHandle>(null)
   const [inspection, setInspection] = useState<CncInspection | null>(null)
   const choreography = useCncChoreography({
     motionRef: modelRef,
     cameraRef: cameraRigRef,
+    coolantRef,
     onStateChange: onSequenceStateChange,
   })
 
@@ -77,6 +85,18 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
       testDumanCamera: () => cameraRigRef.current?.testDumanCamera(),
       testInteriorToDumanPath: () =>
         cameraRigRef.current?.playPath('interiorToDuman'),
+      testFinishedPartCamera: () =>
+        cameraRigRef.current?.goToWaypoint('finishedInspection', { duration: 0 }),
+      startCoolant: () => {
+        coolantRef.current?.startCoolant()
+        coolantRef.current?.setCoolantIntensity(1)
+      },
+      stopCoolant: () => coolantRef.current?.stopCoolant(),
+      testWorkpieceTransition: () => modelRef.current?.revealFinishedImmediate(),
+      resetMachining: () => {
+        coolantRef.current?.resetCoolant()
+        modelRef.current?.resetWorkpieceImmediate()
+      },
       startChuckTest: () => modelRef.current?.startChuck({ rampDuration: 0.55 }),
       stopChuckTest: () => modelRef.current?.stopChuck(true),
       setTailstockContact: (contact) => modelRef.current?.setTailstockContact(contact),
@@ -132,7 +152,9 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
         bounds={inspection?.bounds ?? null}
         dumanBadgeBounds={inspection?.dumanBadgeBounds ?? null}
         interiorBounds={inspection?.interiorBounds ?? null}
+        finishedWorkpieceBounds={inspection?.finishedWorkpieceBounds ?? null}
       />
+      <CoolantEffect ref={coolantRef} />
     </Canvas>
   )
 })

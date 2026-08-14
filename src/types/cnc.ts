@@ -18,6 +18,7 @@ export type CncHomeTransforms = Record<
 export type NodeCheckKey =
   | 'mainChuck'
   | 'workpiece'
+  | 'finishedWorkpiece'
   | 'tailstock'
   | 'turretCarriage'
   | 'turretIndex'
@@ -108,6 +109,7 @@ export interface CncInspection {
   checks: CncNodeChecks
   bounds: Box3
   interiorBounds: Box3 | null
+  finishedWorkpieceBounds: Box3 | null
   dumanBadgeBounds: Box3 | null
   dumanBadgeDiagnostic: DumanBadgeDiagnostic | null
   auditRows: SceneAuditRow[]

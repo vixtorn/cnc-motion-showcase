@@ -17,9 +17,6 @@ export const CNC_CHOREOGRAPHY = {
     turretRadialDuration: 1,
     readyHold: 0.75,
   },
-  chuck: {
-    revolutionDuration: 4.2,
-  },
   turret: {
     longitudinalAxis: 'z' as CncAxis,
     longitudinalOffset: 6,

@@ -7,7 +7,7 @@ import {
   TURRET_INDEX_AXIS,
   type CncAxis,
 } from './cncAnimationConfig'
-import { CNC_CHOREOGRAPHY } from './cncChoreographyConfig'
+import { CNC_MACHINING } from './cncMachiningConfig'
 import type {
   CalibrationDirection,
   CncHomeTransforms,
@@ -23,7 +23,7 @@ interface UseCncMotionCalibrationOptions {
 
 interface ChuckStartOptions {
   rampDuration?: number
-  revolutionDuration?: number
+  rpmVisualSpeed?: number
 }
 
 type LocalOffsets = Partial<Record<CncAxis, number>>
@@ -33,6 +33,7 @@ export interface CncMotionController {
   stopChuck: (reset?: boolean) => void
   pauseChuck: () => void
   resumeChuck: () => void
+  setChuckVisualRpm: (rpmVisualSpeed: number, duration: number) => void
   setTailstockContact: (contact: boolean) => void
   resetTailstock: () => void
   testTurretCarriage: (axis: CncAxis, direction: CalibrationDirection) => void
@@ -148,7 +149,12 @@ export function useCncMotionCalibration({
       chuckSpeedTweenRef.current = null
       if (chuckTickerRef.current) gsap.ticker.remove(chuckTickerRef.current)
       chuckTickerRef.current = null
-      chuckStateRef.current = { angle: 0, speed: 0, paused: false }
+      if (reset) {
+        chuckStateRef.current = { angle: 0, speed: 0, paused: false }
+      } else {
+        chuckStateRef.current.speed = 0
+        chuckStateRef.current.paused = false
+      }
 
       const target = nodes.mainChuck
       const home = homeTransforms.mainChuck
@@ -170,10 +176,10 @@ export function useCncMotionCalibration({
 
       stopChuck(true)
       const state = chuckStateRef.current
-      const rampDuration = options.rampDuration ?? CNC_CHOREOGRAPHY.timings.chuckRampDuration
-      const revolutionDuration =
-        options.revolutionDuration ?? CNC_CHOREOGRAPHY.chuck.revolutionDuration
-      const targetSpeed = (Math.PI * 2) / revolutionDuration
+      const rampDuration = options.rampDuration ?? 0.85
+      const rpmVisualSpeed =
+        options.rpmVisualSpeed ?? CNC_MACHINING.chuck.machiningRpmVisualSpeed
+      const targetSpeed = (rpmVisualSpeed * Math.PI * 2) / 60
 
       const ticker = (_time: number, deltaTime: number) => {
         if (state.paused || state.speed === 0) return
@@ -201,7 +207,7 @@ export function useCncMotionCalibration({
           `[CNC] Chuck started ${JSON.stringify({
             axis: CHUCK_ROTATION_AXIS.toUpperCase(),
             rampDuration,
-            revolutionDuration,
+            rpmVisualSpeed,
           })}`,
         )
       }
@@ -219,6 +225,26 @@ export function useCncMotionCalibration({
     chuckStateRef.current.paused = false
     chuckSpeedTweenRef.current?.resume()
   }, [])
+
+  const setChuckVisualRpm = useCallback(
+    (rpmVisualSpeed: number, duration: number) => {
+      if (!chuckTickerRef.current) return
+      chuckSpeedTweenRef.current?.kill()
+      const targetSpeed = (rpmVisualSpeed * Math.PI * 2) / 60
+      chuckSpeedTweenRef.current = gsap.to(chuckStateRef.current, {
+        speed: targetSpeed,
+        duration,
+        ease: 'power2.inOut',
+        overwrite: true,
+      })
+      if (import.meta.env.DEV) {
+        console.info(
+          `[CNC] Chuck speed target ${JSON.stringify({ rpmVisualSpeed, duration })}`,
+        )
+      }
+    },
+    [],
+  )
 
   const animatePosition = useCallback(
     (target: Object3D, home: HomeTransform, offsets: LocalOffsets, onComplete?: () => void) => {
@@ -442,7 +468,7 @@ export function useCncMotionCalibration({
   }, [homeTransforms.door, nodes.door, resetTarget])
 
   const killAllMotion = useCallback(() => {
-    stopChuck(false)
+    stopChuck(true)
     const targets = [
       nodes.mainChuck,
       nodes.tailstock,
@@ -468,8 +494,6 @@ export function useCncMotionCalibration({
     for (const [target, home] of targets) {
       if (target && home) restoreHomeTransform(target, home)
     }
-    if (nodes.workpiece) nodes.workpiece.visible = true
-    if (nodes.finishedWorkpiece) nodes.finishedWorkpiece.visible = false
     invalidate()
   }, [homeTransforms, invalidate, killAllMotion, nodes])
 
@@ -505,8 +529,6 @@ export function useCncMotionCalibration({
       turretIndex: nodes.turretIndex ? transformSnapshot(nodes.turretIndex) : null,
       turretIndexWorld: worldTransform(nodes.turretIndex),
       turretCenterHubWorld: worldTransform(nodes.turretCenterHub),
-      rawWorkpieceVisible: nodes.workpiece?.visible ?? null,
-      finishedWorkpieceVisible: nodes.finishedWorkpiece?.visible ?? null,
     }
   }, [nodes])
 
@@ -516,9 +538,7 @@ export function useCncMotionCalibration({
     resetTurretCarriage()
     resetTurretIndex()
     resetDoor()
-    if (nodes.workpiece) nodes.workpiece.visible = true
-    if (nodes.finishedWorkpiece) nodes.finishedWorkpiece.visible = false
-  }, [nodes.finishedWorkpiece, nodes.workpiece, resetDoor, resetTailstock, resetTurretCarriage, resetTurretIndex, stopChuck])
+  }, [resetDoor, resetTailstock, resetTurretCarriage, resetTurretIndex, stopChuck])
 
   const addDoorToTimeline = useCallback(
     (timeline: gsap.core.Timeline, at: number, duration: number) => {
@@ -682,6 +702,7 @@ export function useCncMotionCalibration({
       stopChuck,
       pauseChuck,
       resumeChuck,
+      setChuckVisualRpm,
       setTailstockContact,
       resetTailstock,
       testTurretCarriage,
@@ -714,6 +735,7 @@ export function useCncMotionCalibration({
       resetTurretIndex,
       restoreAllImmediate,
       resumeChuck,
+      setChuckVisualRpm,
       setDoorOpen,
       setTailstockContact,
       startChuck,
