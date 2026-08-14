@@ -1,4 +1,19 @@
-import type { Box3, Object3D } from 'three'
+import type { Box3, Euler, Object3D, Vector3 } from 'three'
+
+export type CalibrationAssembly = 'tailstock' | 'turret' | 'door'
+
+export type CalibrationDirection = -1 | 1
+
+export interface HomeTransform {
+  readonly position: Vector3
+  readonly rotation: Euler
+  readonly scale: Vector3
+}
+
+export type CncHomeTransforms = Record<
+  'mainChuck' | CalibrationAssembly,
+  HomeTransform | null
+>
 
 export type NodeCheckKey =
   | 'mainChuck'
@@ -15,6 +30,7 @@ export interface CncNodes {
   mainChuck: Object3D | null
   mainChuckBody: Object3D | null
   workpiece: Object3D | null
+  finishedWorkpiece: Object3D | null
   tailstock: Object3D | null
   tailstockQuill: Object3D | null
   tailstockTip: Object3D | null
@@ -47,12 +63,24 @@ export interface MaterialDiagnostic {
   side: string
 }
 
+export interface PbrMaterialDiagnostic {
+  objectName: string
+  materialName: string
+  materialType: string
+  baseColor: string
+  metalness: number
+  roughness: number
+  envMapIntensity: number
+}
+
 export interface CncInspection {
   nodes: CncNodes
   checks: CncNodeChecks
   bounds: Box3
   auditRows: SceneAuditRow[]
   glassDiagnostics: MaterialDiagnostic[]
+  workpieceDiagnostics: PbrMaterialDiagnostic[]
+  tailstockQuillDiagnostics: PbrMaterialDiagnostic[]
   warnings: string[]
   printAudit: () => void
 }

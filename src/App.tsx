@@ -1,16 +1,19 @@
 import { useCallback, useRef, useState } from 'react'
 import './App.css'
+import type { CncAxis } from './animation/cncAnimationConfig'
+import { DevPanel } from './components/DevPanel'
 import { LoadingScreen } from './components/LoadingScreen'
 import { ModelErrorBoundary } from './components/ModelErrorBoundary'
-import { DevPanel } from './components/DevPanel'
-import type { ChuckAxis } from './animation/cncAnimationConfig'
 import { CNCScene, type CNCSceneHandle } from './scene/CNCScene'
-import type { CncInspection } from './types/cnc'
+import type {
+  CalibrationAssembly,
+  CalibrationDirection,
+  CncInspection,
+} from './types/cnc'
 
 function App() {
   const sceneRef = useRef<CNCSceneHandle>(null)
   const [inspection, setInspection] = useState<CncInspection | null>(null)
-  const [chuckAxis, setChuckAxis] = useState<ChuckAxis>('z')
   const [isChuckTesting, setIsChuckTesting] = useState(false)
 
   const handleInspection = useCallback((nextInspection: CncInspection) => {
@@ -19,8 +22,17 @@ function App() {
 
   const handleResetCamera = useCallback(() => {
     setIsChuckTesting(false)
+    sceneRef.current?.resetAllAssemblies()
     sceneRef.current?.resetCamera()
   }, [])
+
+  const handleTranslationTest = useCallback(
+    (assembly: CalibrationAssembly, axis: CncAxis, direction: CalibrationDirection) => {
+      setIsChuckTesting(false)
+      sceneRef.current?.testTranslation(assembly, axis, direction)
+    },
+    [],
+  )
 
   return (
     <main className="app-shell">
@@ -29,7 +41,7 @@ function App() {
           CM
         </div>
         <div>
-          <p className="eyebrow">Interactive engineering study · Phase 01</p>
+          <p className="eyebrow">Interactive engineering study · Phase 02A</p>
           <h1>CNC Motion Showcase</h1>
         </div>
       </header>
@@ -38,7 +50,6 @@ function App() {
         <ModelErrorBoundary>
           <CNCScene
             ref={sceneRef}
-            chuckAxis={chuckAxis}
             isChuckTesting={isChuckTesting}
             onInspection={handleInspection}
           />
@@ -62,15 +73,12 @@ function App() {
       {import.meta.env.DEV ? (
         <DevPanel
           inspection={inspection}
-          chuckAxis={chuckAxis}
           isChuckTesting={isChuckTesting}
-          onAxisChange={(axis) => {
-            setIsChuckTesting(false)
-            setChuckAxis(axis)
-          }}
           onPrintAudit={() => inspection?.printAudit()}
           onResetCamera={handleResetCamera}
           onToggleChuck={() => setIsChuckTesting((active) => !active)}
+          onTestTranslation={handleTranslationTest}
+          onResetAssembly={(assembly) => sceneRef.current?.resetAssembly(assembly)}
         />
       ) : null}
     </main>

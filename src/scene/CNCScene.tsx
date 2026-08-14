@@ -7,33 +7,50 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { ChuckAxis } from '../animation/cncAnimationConfig'
-import type { CncInspection } from '../types/cnc'
+import { ACESFilmicToneMapping } from 'three'
+import type { CncAxis } from '../animation/cncAnimationConfig'
+import { VISUAL_CALIBRATION } from '../animation/visualCalibrationConfig'
+import type {
+  CalibrationAssembly,
+  CalibrationDirection,
+  CncInspection,
+} from '../types/cnc'
 import { CameraRig, type CameraRigHandle } from './CameraRig'
-import { CNCModel } from './CNCModel'
+import { CNCModel, type CNCModelHandle } from './CNCModel'
 import { SceneLighting } from './SceneLighting'
 
 export interface CNCSceneHandle {
   resetCamera: () => void
+  testTranslation: (
+    assembly: CalibrationAssembly,
+    axis: CncAxis,
+    direction: CalibrationDirection,
+  ) => void
+  resetAssembly: (assembly: CalibrationAssembly) => void
+  resetAllAssemblies: () => void
 }
 
 interface CNCSceneProps {
-  chuckAxis: ChuckAxis
   isChuckTesting: boolean
   onInspection: (inspection: CncInspection) => void
 }
 
 export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCScene(
-  { chuckAxis, isChuckTesting, onInspection },
+  { isChuckTesting, onInspection },
   ref,
 ) {
   const cameraRigRef = useRef<CameraRigHandle>(null)
+  const modelRef = useRef<CNCModelHandle>(null)
   const [inspection, setInspection] = useState<CncInspection | null>(null)
 
   useImperativeHandle(
     ref,
     () => ({
       resetCamera: () => cameraRigRef.current?.resetCamera(),
+      testTranslation: (assembly, axis, direction) =>
+        modelRef.current?.testTranslation(assembly, axis, direction),
+      resetAssembly: (assembly) => modelRef.current?.resetAssembly(assembly),
+      resetAllAssemblies: () => modelRef.current?.resetAllAssemblies(),
     }),
     [],
   )
@@ -49,16 +66,21 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
   return (
     <Canvas
       className="scene-canvas"
-      dpr={[1, 1.75]}
+      dpr={VISUAL_CALIBRATION.renderer.dpr}
       frameloop="demand"
-      camera={{ fov: 34, near: 0.1, far: 10000 }}
+      camera={{ fov: VISUAL_CALIBRATION.camera.fov, near: 0.1, far: 10000 }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
+      onCreated={({ gl, invalidate }) => {
+        gl.toneMapping = ACESFilmicToneMapping
+        gl.toneMappingExposure = VISUAL_CALIBRATION.renderer.toneMappingExposure
+        invalidate()
+      }}
     >
-      <color attach="background" args={['#d8d7d1']} />
+      <color attach="background" args={[VISUAL_CALIBRATION.background]} />
       <SceneLighting />
       <Suspense fallback={null}>
         <CNCModel
-          chuckAxis={chuckAxis}
+          ref={modelRef}
           isChuckTesting={isChuckTesting}
           onInspection={handleInspection}
         />

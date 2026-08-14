@@ -3,6 +3,7 @@ import { OrbitControls } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
 import { MathUtils, PerspectiveCamera, Vector3, type Box3 } from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import { VISUAL_CALIBRATION } from '../animation/visualCalibrationConfig'
 
 export interface CameraRigHandle {
   resetCamera: () => void
@@ -12,7 +13,8 @@ interface CameraRigProps {
   bounds: Box3 | null
 }
 
-const CAMERA_DIRECTION = new Vector3(1.15, 0.62, 1.3).normalize()
+const { camera: cameraCalibration } = VISUAL_CALIBRATION
+const CAMERA_DIRECTION = new Vector3(...cameraCalibration.direction).normalize()
 
 export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function CameraRig(
   { bounds },
@@ -32,7 +34,12 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     const verticalFov = MathUtils.degToRad(camera.fov)
     const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * Math.max(size.width / size.height, 0.1))
     const limitingFov = Math.min(verticalFov, horizontalFov)
-    const distance = (radius / Math.sin(limitingFov / 2)) * 1.08
+    const aspect = size.width / Math.max(size.height, 1)
+    const distanceScale =
+      aspect <= cameraCalibration.mobileAspectThreshold
+        ? cameraCalibration.mobileDistanceScale
+        : cameraCalibration.desktopDistanceScale
+    const distance = (radius / Math.sin(limitingFov / 2)) * distanceScale
 
     return {
       center,
@@ -46,8 +53,11 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     if (!framing || !(camera instanceof PerspectiveCamera)) return
 
     camera.position.copy(framing.position)
-    camera.near = Math.max(framing.distance / 100, 0.01)
-    camera.far = Math.max(framing.distance + framing.radius * 8, 1000)
+    camera.near = Math.max(framing.distance / cameraCalibration.nearDistanceDivisor, 0.01)
+    camera.far = Math.max(
+      framing.distance + framing.radius * cameraCalibration.farRadiusMultiplier,
+      1000,
+    )
     camera.updateProjectionMatrix()
     controlsRef.current?.target.copy(framing.center)
     controlsRef.current?.update()

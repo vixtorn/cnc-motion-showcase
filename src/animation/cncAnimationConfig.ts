@@ -5,6 +5,7 @@ export const CNC_NODE_NAMES = {
   mainChuck: 'MainChuck_Assembly',
   mainChuckBody: 'MainChuck_Body',
   workpiece: 'Workpiece_Raw',
+  finishedWorkpiece: 'Workpiece_Finished_Camshaft',
   tailstock: 'Tailstock_MovingAssembly',
   tailstockQuill: 'Tailstock_Quill',
   tailstockTip: 'Tailstock_Tip',
@@ -17,6 +18,8 @@ export const CNC_NODE_NAMES = {
 
 export const CHUCK_ROTATION_DURATION = 5
 
-export const CHUCK_AXIS_OPTIONS = ['x', 'y', 'z'] as const
+export const CHUCK_ROTATION_AXIS = 'z' as const
 
-export type ChuckAxis = (typeof CHUCK_AXIS_OPTIONS)[number]
+export const CNC_AXIS_OPTIONS = ['x', 'y', 'z'] as const
+
+export type CncAxis = (typeof CNC_AXIS_OPTIONS)[number]

@@ -5,6 +5,8 @@ import {
   DoubleSide,
   FrontSide,
   Mesh,
+  MeshStandardMaterial,
+  SRGBColorSpace,
   type BufferGeometry,
   type Material,
   type Object3D,
@@ -15,6 +17,7 @@ import type {
   CncNodeChecks,
   CncNodes,
   MaterialDiagnostic,
+  PbrMaterialDiagnostic,
   SceneAuditRow,
 } from '../types/cnc'
 
@@ -82,6 +85,22 @@ const createMaterialDiagnostics = (object: Object3D | null): MaterialDiagnostic[
   }))
 }
 
+const createPbrMaterialDiagnostics = (object: Object3D | null): PbrMaterialDiagnostic[] => {
+  if (!(object instanceof Mesh)) return []
+
+  return materialList(object.material)
+    .filter((material): material is MeshStandardMaterial => material instanceof MeshStandardMaterial)
+    .map((material) => ({
+      objectName: object.name || '(unnamed mesh)',
+      materialName: material.name || '(unnamed material)',
+      materialType: material.type,
+      baseColor: `#${material.color.getHexString(SRGBColorSpace)}`,
+      metalness: material.metalness,
+      roughness: material.roughness,
+      envMapIntensity: material.envMapIntensity,
+    }))
+}
+
 const buildInspection = (scene: Object3D): CncInspection => {
   const findNode = (name: string) => scene.getObjectByName(name) ?? null
   const nodes: CncNodes = {
@@ -89,6 +108,7 @@ const buildInspection = (scene: Object3D): CncInspection => {
     mainChuck: findNode(CNC_NODE_NAMES.mainChuck),
     mainChuckBody: findNode(CNC_NODE_NAMES.mainChuckBody),
     workpiece: findNode(CNC_NODE_NAMES.workpiece),
+    finishedWorkpiece: findNode(CNC_NODE_NAMES.finishedWorkpiece),
     tailstock: findNode(CNC_NODE_NAMES.tailstock),
     tailstockQuill: findNode(CNC_NODE_NAMES.tailstockQuill),
     tailstockTip: findNode(CNC_NODE_NAMES.tailstockTip),
@@ -160,10 +180,14 @@ const buildInspection = (scene: Object3D): CncInspection => {
   }
 
   const glassDiagnostics = createMaterialDiagnostics(nodes.doorGlass)
+  const workpieceDiagnostics = createPbrMaterialDiagnostics(nodes.workpiece)
+  const tailstockQuillDiagnostics = createPbrMaterialDiagnostics(nodes.tailstockQuill)
   const printAudit = () => {
     console.groupCollapsed('[CNC] Complete GLB scene audit')
     console.table(auditRows)
     console.info('[CNC] FrontDoor_Window material diagnostics', glassDiagnostics)
+    console.info('[CNC] Workpiece_Raw material diagnostics', workpieceDiagnostics)
+    console.info('[CNC] Tailstock_Quill material diagnostics', tailstockQuillDiagnostics)
     if (warnings.length > 0) {
       warnings.forEach((warning) => console.warn(`[CNC] ${warning}`))
     } else {
@@ -178,6 +202,8 @@ const buildInspection = (scene: Object3D): CncInspection => {
     bounds: new Box3().setFromObject(scene),
     auditRows,
     glassDiagnostics,
+    workpieceDiagnostics,
+    tailstockQuillDiagnostics,
     warnings,
     printAudit,
   }
