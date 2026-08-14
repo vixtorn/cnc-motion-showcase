@@ -330,6 +330,12 @@
   width: 100%;
 }
 
+.calibration-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.6rem, 1fr));
+  gap: 0.35rem;
+}
+
 .translation-controls {
   display: grid;
   gap: 0.3rem;

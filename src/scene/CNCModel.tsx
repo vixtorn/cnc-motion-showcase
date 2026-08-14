@@ -5,12 +5,7 @@ import { CNC_MODEL_URL, type CncAxis } from '../animation/cncAnimationConfig'
 import { useCncMotionCalibration } from '../animation/useCncMotionCalibration'
 import { useCncHomeTransforms } from '../hooks/useCncHomeTransforms'
 import { useCncNodes } from '../hooks/useCncNodes'
-import type {
-  CalibrationAssembly,
-  CalibrationDirection,
-  CncInspection,
-  HomeTransform,
-} from '../types/cnc'
+import type { CalibrationDirection, CncInspection, HomeTransform } from '../types/cnc'
 
 interface CNCModelProps {
   isChuckTesting: boolean
@@ -18,12 +13,14 @@ interface CNCModelProps {
 }
 
 export interface CNCModelHandle {
-  testTranslation: (
-    assembly: CalibrationAssembly,
-    axis: CncAxis,
-    direction: CalibrationDirection,
-  ) => void
-  resetAssembly: (assembly: CalibrationAssembly) => void
+  setTailstockContact: (contact: boolean) => void
+  resetTailstock: () => void
+  testTurretCarriage: (axis: CncAxis, direction: CalibrationDirection) => void
+  resetTurretCarriage: () => void
+  testTurretIndex: (direction: CalibrationDirection) => void
+  resetTurretIndex: () => void
+  setDoorOpen: (open: boolean) => void
+  resetDoor: () => void
   resetAllAssemblies: () => void
 }
 
@@ -50,18 +47,14 @@ export const CNCModel = forwardRef<CNCModelHandle, CNCModelProps>(function CNCMo
   const inspection = useCncNodes(scene)
   const homeTransforms = useCncHomeTransforms(inspection.nodes)
   const invalidate = useThree((state) => state.invalidate)
-  const { testTranslation, resetAssembly, resetAllAssemblies } = useCncMotionCalibration({
+  const motion = useCncMotionCalibration({
     nodes: inspection.nodes,
     homeTransforms,
     isChuckTesting,
     invalidate,
   })
 
-  useImperativeHandle(
-    ref,
-    () => ({ testTranslation, resetAssembly, resetAllAssemblies }),
-    [resetAllAssemblies, resetAssembly, testTranslation],
-  )
+  useImperativeHandle(ref, () => motion, [motion])
 
   useLayoutEffect(() => {
     if (inspection.nodes.workpiece) inspection.nodes.workpiece.visible = true
@@ -72,19 +65,24 @@ export const CNCModel = forwardRef<CNCModelHandle, CNCModelProps>(function CNCMo
   useEffect(() => {
     onInspection(inspection)
 
-    if (import.meta.env.DEV && !auditedScenes.has(scene)) {
+    if (!import.meta.env.DEV) return
+
+    if (!auditedScenes.has(scene)) {
       auditedScenes.add(scene)
       inspection.printAudit()
       console.table([
         homeTransformLogRow('MainChuck_Assembly', homeTransforms.mainChuck),
         homeTransformLogRow('Tailstock_MovingAssembly', homeTransforms.tailstock),
-        homeTransformLogRow('Turret_Assembly', homeTransforms.turret),
+        homeTransformLogRow('Turret_CarriageAssembly', homeTransforms.turretCarriage),
+        homeTransformLogRow('Turret_IndexAssembly', homeTransforms.turretIndex),
         homeTransformLogRow('FrontDoor_Assembly', homeTransforms.door),
       ])
-      console.info('[CNC] Workpiece visibility', {
-        Workpiece_Raw: inspection.nodes.workpiece?.visible ?? false,
-        Workpiece_Finished_Camshaft: inspection.nodes.finishedWorkpiece?.visible ?? false,
-      })
+      console.info(
+        `[CNC] Workpiece visibility ${JSON.stringify({
+          Workpiece_Raw: inspection.nodes.workpiece?.visible ?? false,
+          Workpiece_Finished_Camshaft: inspection.nodes.finishedWorkpiece?.visible ?? false,
+        })}`,
+      )
     }
   }, [homeTransforms, inspection, onInspection, scene])
 

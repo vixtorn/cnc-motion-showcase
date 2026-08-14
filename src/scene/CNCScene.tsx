@@ -7,11 +7,10 @@ import {
   useRef,
   useState,
 } from 'react'
-import { ACESFilmicToneMapping } from 'three'
+import { ACESFilmicToneMapping, SRGBColorSpace } from 'three'
 import type { CncAxis } from '../animation/cncAnimationConfig'
 import { VISUAL_CALIBRATION } from '../animation/visualCalibrationConfig'
 import type {
-  CalibrationAssembly,
   CalibrationDirection,
   CncInspection,
 } from '../types/cnc'
@@ -21,12 +20,15 @@ import { SceneLighting } from './SceneLighting'
 
 export interface CNCSceneHandle {
   resetCamera: () => void
-  testTranslation: (
-    assembly: CalibrationAssembly,
-    axis: CncAxis,
-    direction: CalibrationDirection,
-  ) => void
-  resetAssembly: (assembly: CalibrationAssembly) => void
+  testDumanCamera: () => void
+  setTailstockContact: (contact: boolean) => void
+  resetTailstock: () => void
+  testTurretCarriage: (axis: CncAxis, direction: CalibrationDirection) => void
+  resetTurretCarriage: () => void
+  testTurretIndex: (direction: CalibrationDirection) => void
+  resetTurretIndex: () => void
+  setDoorOpen: (open: boolean) => void
+  resetDoor: () => void
   resetAllAssemblies: () => void
 }
 
@@ -47,9 +49,16 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     ref,
     () => ({
       resetCamera: () => cameraRigRef.current?.resetCamera(),
-      testTranslation: (assembly, axis, direction) =>
-        modelRef.current?.testTranslation(assembly, axis, direction),
-      resetAssembly: (assembly) => modelRef.current?.resetAssembly(assembly),
+      testDumanCamera: () => cameraRigRef.current?.testDumanCamera(),
+      setTailstockContact: (contact) => modelRef.current?.setTailstockContact(contact),
+      resetTailstock: () => modelRef.current?.resetTailstock(),
+      testTurretCarriage: (axis, direction) =>
+        modelRef.current?.testTurretCarriage(axis, direction),
+      resetTurretCarriage: () => modelRef.current?.resetTurretCarriage(),
+      testTurretIndex: (direction) => modelRef.current?.testTurretIndex(direction),
+      resetTurretIndex: () => modelRef.current?.resetTurretIndex(),
+      setDoorOpen: (open) => modelRef.current?.setDoorOpen(open),
+      resetDoor: () => modelRef.current?.resetDoor(),
       resetAllAssemblies: () => modelRef.current?.resetAllAssemblies(),
     }),
     [],
@@ -73,6 +82,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
       onCreated={({ gl, invalidate }) => {
         gl.toneMapping = ACESFilmicToneMapping
         gl.toneMappingExposure = VISUAL_CALIBRATION.renderer.toneMappingExposure
+        gl.outputColorSpace = SRGBColorSpace
         invalidate()
       }}
     >
@@ -85,7 +95,11 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
           onInspection={handleInspection}
         />
       </Suspense>
-      <CameraRig ref={cameraRigRef} bounds={inspection?.bounds ?? null} />
+      <CameraRig
+        ref={cameraRigRef}
+        bounds={inspection?.bounds ?? null}
+        dumanBadgeBounds={inspection?.dumanBadgeBounds ?? null}
+      />
     </Canvas>
   )
 })

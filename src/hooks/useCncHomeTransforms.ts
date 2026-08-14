@@ -18,8 +18,9 @@ export const useCncHomeTransforms = (nodes: CncNodes): CncHomeTransforms =>
       Object.freeze({
         mainChuck: captureHomeTransform(nodes.mainChuck),
         tailstock: captureHomeTransform(nodes.tailstock),
-        turret: captureHomeTransform(nodes.turret),
+        turretCarriage: captureHomeTransform(nodes.turretCarriage),
+        turretIndex: captureHomeTransform(nodes.turretIndex),
         door: captureHomeTransform(nodes.door),
       }),
-    [nodes.door, nodes.mainChuck, nodes.tailstock, nodes.turret],
+    [nodes.door, nodes.mainChuck, nodes.tailstock, nodes.turretCarriage, nodes.turretIndex],
   )

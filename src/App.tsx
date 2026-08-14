@@ -6,7 +6,6 @@ import { LoadingScreen } from './components/LoadingScreen'
 import { ModelErrorBoundary } from './components/ModelErrorBoundary'
 import { CNCScene, type CNCSceneHandle } from './scene/CNCScene'
 import type {
-  CalibrationAssembly,
   CalibrationDirection,
   CncInspection,
 } from './types/cnc'
@@ -21,15 +20,13 @@ function App() {
   }, [])
 
   const handleResetCamera = useCallback(() => {
-    setIsChuckTesting(false)
-    sceneRef.current?.resetAllAssemblies()
     sceneRef.current?.resetCamera()
   }, [])
 
-  const handleTranslationTest = useCallback(
-    (assembly: CalibrationAssembly, axis: CncAxis, direction: CalibrationDirection) => {
+  const handleTurretCarriageTest = useCallback(
+    (axis: CncAxis, direction: CalibrationDirection) => {
       setIsChuckTesting(false)
-      sceneRef.current?.testTranslation(assembly, axis, direction)
+      sceneRef.current?.testTurretCarriage(axis, direction)
     },
     [],
   )
@@ -41,7 +38,7 @@ function App() {
           CM
         </div>
         <div>
-          <p className="eyebrow">Interactive engineering study · Phase 02A</p>
+          <p className="eyebrow">Interactive engineering study · Phase 02B</p>
           <h1>CNC Motion Showcase</h1>
         </div>
       </header>
@@ -76,9 +73,25 @@ function App() {
           isChuckTesting={isChuckTesting}
           onPrintAudit={() => inspection?.printAudit()}
           onResetCamera={handleResetCamera}
+          onTestDumanCamera={() => sceneRef.current?.testDumanCamera()}
           onToggleChuck={() => setIsChuckTesting((active) => !active)}
-          onTestTranslation={handleTranslationTest}
-          onResetAssembly={(assembly) => sceneRef.current?.resetAssembly(assembly)}
+          onSetTailstockContact={(contact) => {
+            setIsChuckTesting(false)
+            sceneRef.current?.setTailstockContact(contact)
+          }}
+          onResetTailstock={() => sceneRef.current?.resetTailstock()}
+          onTestTurretCarriage={handleTurretCarriageTest}
+          onResetTurretCarriage={() => sceneRef.current?.resetTurretCarriage()}
+          onTestTurretIndex={(direction) => {
+            setIsChuckTesting(false)
+            sceneRef.current?.testTurretIndex(direction)
+          }}
+          onResetTurretIndex={() => sceneRef.current?.resetTurretIndex()}
+          onSetDoorOpen={(open) => {
+            setIsChuckTesting(false)
+            sceneRef.current?.setDoorOpen(open)
+          }}
+          onResetDoor={() => sceneRef.current?.resetDoor()}
         />
       ) : null}
     </main>

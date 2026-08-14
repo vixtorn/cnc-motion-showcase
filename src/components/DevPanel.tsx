@@ -1,95 +1,50 @@
 import { CNC_AXIS_OPTIONS, type CncAxis } from '../animation/cncAnimationConfig'
-import type {
-  CalibrationAssembly,
-  CalibrationDirection,
-  CncInspection,
-  NodeCheckKey,
-} from '../types/cnc'
+import type { CalibrationDirection, CncInspection, NodeCheckKey } from '../types/cnc'
 
 interface DevPanelProps {
   inspection: CncInspection | null
   isChuckTesting: boolean
   onPrintAudit: () => void
   onResetCamera: () => void
+  onTestDumanCamera: () => void
   onToggleChuck: () => void
-  onTestTranslation: (
-    assembly: CalibrationAssembly,
-    axis: CncAxis,
-    direction: CalibrationDirection,
-  ) => void
-  onResetAssembly: (assembly: CalibrationAssembly) => void
-}
-
-interface TranslationCalibrationProps {
-  assembly: CalibrationAssembly
-  label: string
-  available: boolean
-  onTest: DevPanelProps['onTestTranslation']
-  onReset: DevPanelProps['onResetAssembly']
+  onSetTailstockContact: (contact: boolean) => void
+  onResetTailstock: () => void
+  onTestTurretCarriage: (axis: CncAxis, direction: CalibrationDirection) => void
+  onResetTurretCarriage: () => void
+  onTestTurretIndex: (direction: CalibrationDirection) => void
+  onResetTurretIndex: () => void
+  onSetDoorOpen: (open: boolean) => void
+  onResetDoor: () => void
 }
 
 const NODE_LABELS: Array<[NodeCheckKey, string]> = [
   ['mainChuck', 'MAIN CHUCK'],
   ['workpiece', 'WORKPIECE'],
   ['tailstock', 'TAILSTOCK'],
-  ['turret', 'TURRET'],
+  ['turretCarriage', 'TURRET CARRIAGE'],
+  ['turretIndex', 'TURRET INDEX'],
+  ['turretCenterHub', 'TURRET CENTER HUB'],
   ['door', 'DOOR'],
   ['doorGlass', 'DOOR GLASS'],
+  ['doorLowerStrip', 'DOOR LOWER STRIP'],
 ]
-
-function TranslationCalibration({
-  assembly,
-  label,
-  available,
-  onTest,
-  onReset,
-}: TranslationCalibrationProps) {
-  return (
-    <section className="calibration-group">
-      <h2>{label}</h2>
-      <div className="translation-controls">
-        {CNC_AXIS_OPTIONS.map((axis) => (
-          <div className="translation-axis" key={axis}>
-            <span>{axis.toUpperCase()}</span>
-            <button
-              type="button"
-              disabled={!available}
-              aria-label={`${label} local ${axis.toUpperCase()} negative`}
-              onClick={() => onTest(assembly, axis, -1)}
-            >
-              {axis.toUpperCase()}−
-            </button>
-            <button
-              type="button"
-              disabled={!available}
-              aria-label={`${label} local ${axis.toUpperCase()} positive`}
-              onClick={() => onTest(assembly, axis, 1)}
-            >
-              {axis.toUpperCase()}+
-            </button>
-          </div>
-        ))}
-      </div>
-      <button
-        className="calibration-reset"
-        type="button"
-        disabled={!available}
-        onClick={() => onReset(assembly)}
-      >
-        [ RESET {label} ]
-      </button>
-    </section>
-  )
-}
 
 export function DevPanel({
   inspection,
   isChuckTesting,
   onPrintAudit,
   onResetCamera,
+  onTestDumanCamera,
   onToggleChuck,
-  onTestTranslation,
-  onResetAssembly,
+  onSetTailstockContact,
+  onResetTailstock,
+  onTestTurretCarriage,
+  onResetTurretCarriage,
+  onTestTurretIndex,
+  onResetTurretIndex,
+  onSetDoorOpen,
+  onResetDoor,
 }: DevPanelProps) {
   const checks = inspection?.checks
 
@@ -119,15 +74,24 @@ export function DevPanel({
       </div>
 
       <div className="calibration-panel">
-        <div className="calibration-panel__heading">
-          <h2>VISUAL CALIBRATION</h2>
-          <button type="button" disabled={!inspection} onClick={onResetCamera}>
-            [ RESET VIEW ]
-          </button>
-        </div>
+        <section className="calibration-group">
+          <h2>VISUAL</h2>
+          <div className="calibration-actions">
+            <button type="button" disabled={!inspection} onClick={onResetCamera}>
+              [ RESET VIEW ]
+            </button>
+            <button
+              type="button"
+              disabled={!inspection?.dumanBadgeBounds}
+              onClick={onTestDumanCamera}
+            >
+              [ TEST DUMAN CAMERA ]
+            </button>
+          </div>
+        </section>
 
         <section className="calibration-group calibration-group--chuck">
-          <h2>CHUCK ROTATION · LOCAL Z</h2>
+          <h2>CHUCK - LOCAL Z</h2>
           <button
             type="button"
             className={isChuckTesting ? 'is-active' : ''}
@@ -139,27 +103,100 @@ export function DevPanel({
           </button>
         </section>
 
-        <TranslationCalibration
-          assembly="tailstock"
-          label="TAILSTOCK TRANSLATION"
-          available={checks?.tailstock ?? false}
-          onTest={onTestTranslation}
-          onReset={onResetAssembly}
-        />
-        <TranslationCalibration
-          assembly="turret"
-          label="TURRET TRANSLATION"
-          available={checks?.turret ?? false}
-          onTest={onTestTranslation}
-          onReset={onResetAssembly}
-        />
-        <TranslationCalibration
-          assembly="door"
-          label="DOOR MOTION"
-          available={checks?.door ?? false}
-          onTest={onTestTranslation}
-          onReset={onResetAssembly}
-        />
+        <section className="calibration-group">
+          <h2>TAILSTOCK</h2>
+          <div className="calibration-actions">
+            <button type="button" disabled={!checks?.tailstock} onClick={() => onSetTailstockContact(false)}>
+              [ HOME ]
+            </button>
+            <button type="button" disabled={!checks?.tailstock} onClick={() => onSetTailstockContact(true)}>
+              [ CONTACT ]
+            </button>
+            <button type="button" disabled={!checks?.tailstock} onClick={onResetTailstock}>
+              [ RESET ]
+            </button>
+          </div>
+        </section>
+
+        <section className="calibration-group">
+          <h2>TURRET CARRIAGE</h2>
+          <div className="translation-controls">
+            {CNC_AXIS_OPTIONS.map((axis) => (
+              <div className="translation-axis" key={axis}>
+                <span>{axis.toUpperCase()}</span>
+                <button
+                  type="button"
+                  disabled={!checks?.turretCarriage}
+                  aria-label={`Turret carriage local ${axis.toUpperCase()} negative`}
+                  onClick={() => onTestTurretCarriage(axis, -1)}
+                >
+                  {axis.toUpperCase()}-
+                </button>
+                <button
+                  type="button"
+                  disabled={!checks?.turretCarriage}
+                  aria-label={`Turret carriage local ${axis.toUpperCase()} positive`}
+                  onClick={() => onTestTurretCarriage(axis, 1)}
+                >
+                  {axis.toUpperCase()}+
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            className="calibration-reset"
+            type="button"
+            disabled={!checks?.turretCarriage}
+            onClick={onResetTurretCarriage}
+          >
+            [ RESET TURRET CARRIAGE ]
+          </button>
+        </section>
+
+        <section className="calibration-group">
+          <h2>TURRET INDEX - LOCAL Z</h2>
+          <div className="calibration-actions">
+            <button
+              type="button"
+              disabled={!checks?.turretIndex}
+              aria-label="Turret index local Z negative"
+              onClick={() => onTestTurretIndex(-1)}
+            >
+              [ Z- ]
+            </button>
+            <button
+              type="button"
+              disabled={!checks?.turretIndex}
+              aria-label="Turret index local Z positive"
+              onClick={() => onTestTurretIndex(1)}
+            >
+              [ Z+ ]
+            </button>
+          </div>
+          <button
+            className="calibration-reset"
+            type="button"
+            disabled={!checks?.turretIndex}
+            onClick={onResetTurretIndex}
+          >
+            [ RESET TURRET INDEX ]
+          </button>
+        </section>
+
+        <section className="calibration-group">
+          <h2>DOOR - LOCAL Z</h2>
+          <div className="calibration-actions">
+            <button type="button" disabled={!checks?.door} onClick={() => onSetDoorOpen(true)}>
+              [ OPEN ]
+            </button>
+            <button type="button" disabled={!checks?.door} onClick={() => onSetDoorOpen(false)}>
+              [ CLOSE ]
+            </button>
+            <button type="button" disabled={!checks?.door} onClick={onResetDoor}>
+              [ RESET ]
+            </button>
+          </div>
+        </section>
       </div>
     </aside>
   )
