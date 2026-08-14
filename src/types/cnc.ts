@@ -2,6 +2,8 @@ import type { Box3, Euler, Object3D, Vector3 } from 'three'
 
 export type CalibrationDirection = -1 | 1
 
+export type CncSequenceState = 'idle' | 'playing' | 'paused' | 'complete'
+
 export interface HomeTransform {
   readonly position: Vector3
   readonly rotation: Euler
@@ -105,6 +107,7 @@ export interface CncInspection {
   nodes: CncNodes
   checks: CncNodeChecks
   bounds: Box3
+  interiorBounds: Box3 | null
   dumanBadgeBounds: Box3 | null
   dumanBadgeDiagnostic: DumanBadgeDiagnostic | null
   auditRows: SceneAuditRow[]

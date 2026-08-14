@@ -1,28 +1,18 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
-import { CNC_MODEL_URL, type CncAxis } from '../animation/cncAnimationConfig'
+import { CNC_MODEL_URL } from '../animation/cncAnimationConfig'
 import { useCncMotionCalibration } from '../animation/useCncMotionCalibration'
+import type { CncMotionController } from '../animation/useCncMotionCalibration'
 import { useCncHomeTransforms } from '../hooks/useCncHomeTransforms'
 import { useCncNodes } from '../hooks/useCncNodes'
-import type { CalibrationDirection, CncInspection, HomeTransform } from '../types/cnc'
+import type { CncInspection, HomeTransform } from '../types/cnc'
 
 interface CNCModelProps {
-  isChuckTesting: boolean
   onInspection: (inspection: CncInspection) => void
 }
 
-export interface CNCModelHandle {
-  setTailstockContact: (contact: boolean) => void
-  resetTailstock: () => void
-  testTurretCarriage: (axis: CncAxis, direction: CalibrationDirection) => void
-  resetTurretCarriage: () => void
-  testTurretIndex: (direction: CalibrationDirection) => void
-  resetTurretIndex: () => void
-  setDoorOpen: (open: boolean) => void
-  resetDoor: () => void
-  resetAllAssemblies: () => void
-}
+export type CNCModelHandle = CncMotionController
 
 const auditedScenes = new WeakSet<object>()
 
@@ -40,7 +30,7 @@ const homeTransformLogRow = (name: string, home: HomeTransform | null) => ({
 })
 
 export const CNCModel = forwardRef<CNCModelHandle, CNCModelProps>(function CNCModel(
-  { isChuckTesting, onInspection },
+  { onInspection },
   ref,
 ) {
   const { scene } = useGLTF(CNC_MODEL_URL)
@@ -50,7 +40,6 @@ export const CNCModel = forwardRef<CNCModelHandle, CNCModelProps>(function CNCMo
   const motion = useCncMotionCalibration({
     nodes: inspection.nodes,
     homeTransforms,
-    isChuckTesting,
     invalidate,
   })
 

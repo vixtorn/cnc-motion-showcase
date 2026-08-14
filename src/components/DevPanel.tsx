@@ -1,12 +1,22 @@
 import { CNC_AXIS_OPTIONS, type CncAxis } from '../animation/cncAnimationConfig'
-import type { CalibrationDirection, CncInspection, NodeCheckKey } from '../types/cnc'
+import type {
+  CalibrationDirection,
+  CncInspection,
+  CncSequenceState,
+  NodeCheckKey,
+} from '../types/cnc'
+import type { CameraWaypointName } from '../scene/CameraRig'
 
 interface DevPanelProps {
   inspection: CncInspection | null
   isChuckTesting: boolean
+  sequenceState: CncSequenceState
   onPrintAudit: () => void
   onResetCamera: () => void
+  onTestCameraWaypoint: (name: CameraWaypointName) => void
+  onTestInteriorCamera: () => void
   onTestDumanCamera: () => void
+  onTestInteriorToDumanPath: () => void
   onToggleChuck: () => void
   onSetTailstockContact: (contact: boolean) => void
   onResetTailstock: () => void
@@ -16,6 +26,10 @@ interface DevPanelProps {
   onResetTurretIndex: () => void
   onSetDoorOpen: (open: boolean) => void
   onResetDoor: () => void
+  onPlaySequence: () => void
+  onPauseSequence: () => void
+  onResumeSequence: () => void
+  onResetSequence: () => void
 }
 
 const NODE_LABELS: Array<[NodeCheckKey, string]> = [
@@ -33,9 +47,13 @@ const NODE_LABELS: Array<[NodeCheckKey, string]> = [
 export function DevPanel({
   inspection,
   isChuckTesting,
+  sequenceState,
   onPrintAudit,
   onResetCamera,
+  onTestCameraWaypoint,
+  onTestInteriorCamera,
   onTestDumanCamera,
+  onTestInteriorToDumanPath,
   onToggleChuck,
   onSetTailstockContact,
   onResetTailstock,
@@ -45,8 +63,13 @@ export function DevPanel({
   onResetTurretIndex,
   onSetDoorOpen,
   onResetDoor,
+  onPlaySequence,
+  onPauseSequence,
+  onResumeSequence,
+  onResetSequence,
 }: DevPanelProps) {
   const checks = inspection?.checks
+  const diagnosticsDisabled = sequenceState === 'playing' || sequenceState === 'paused'
 
   return (
     <aside className="dev-panel" aria-label="CNC development controls">
@@ -74,11 +97,75 @@ export function DevPanel({
       </div>
 
       <div className="calibration-panel">
+        <section className="calibration-group choreography-controls">
+          <div className="choreography-heading">
+            <h2>PHASE 2C CHOREOGRAPHY</h2>
+            <span className={`sequence-state is-${sequenceState}`}>
+              STATE: {sequenceState.toUpperCase()}
+            </span>
+          </div>
+          <div className="calibration-actions">
+            <button
+              type="button"
+              disabled={!inspection || sequenceState === 'playing' || sequenceState === 'paused'}
+              onClick={onPlaySequence}
+            >
+              [ PLAY SEQUENCE ]
+            </button>
+            <button
+              type="button"
+              disabled={sequenceState !== 'playing'}
+              onClick={onPauseSequence}
+            >
+              [ PAUSE ]
+            </button>
+            <button
+              type="button"
+              disabled={sequenceState !== 'paused'}
+              onClick={onResumeSequence}
+            >
+              [ RESUME ]
+            </button>
+            <button type="button" disabled={!inspection} onClick={onResetSequence}>
+              [ RESET SEQUENCE ]
+            </button>
+          </div>
+        </section>
+
+        <fieldset className="calibration-diagnostics" disabled={diagnosticsDisabled}>
         <section className="calibration-group">
-          <h2>VISUAL</h2>
+          <h2>CAMERA PATH CALIBRATION</h2>
           <div className="calibration-actions">
             <button type="button" disabled={!inspection} onClick={onResetCamera}>
               [ RESET VIEW ]
+            </button>
+            <button
+              type="button"
+              disabled={!inspection}
+              onClick={() => onTestCameraWaypoint('doorApproach')}
+            >
+              [ TEST DOOR APPROACH CAMERA ]
+            </button>
+            <button
+              type="button"
+              disabled={!inspection}
+              onClick={() => onTestCameraWaypoint('doorThreshold')}
+            >
+              [ TEST DOOR THRESHOLD CAMERA ]
+            </button>
+            <button
+              type="button"
+              disabled={!inspection?.interiorBounds}
+              onClick={onTestInteriorCamera}
+            >
+              [ TEST INTERIOR CAMERA ]
+            </button>
+            <button
+              type="button"
+              disabled={!inspection}
+              onClick={() => onTestCameraWaypoint('exitThreshold')}
+            >
+              [ TEST EXIT THRESHOLD CAMERA ]
             </button>
             <button
               type="button"
@@ -86,6 +173,13 @@ export function DevPanel({
               onClick={onTestDumanCamera}
             >
               [ TEST DUMAN CAMERA ]
+            </button>
+            <button
+              type="button"
+              disabled={!inspection?.interiorBounds || !inspection?.dumanBadgeBounds}
+              onClick={onTestInteriorToDumanPath}
+            >
+              [ TEST INTERIOR TO DUMAN PATH ]
             </button>
           </div>
         </section>
@@ -197,6 +291,7 @@ export function DevPanel({
             </button>
           </div>
         </section>
+        </fieldset>
       </div>
     </aside>
   )

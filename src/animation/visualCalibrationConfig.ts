@@ -19,6 +19,45 @@ export const VISUAL_CALIBRATION = {
     dumanTargetOffset: [4.5, 1.5, -4.25] as [number, number, number],
     dumanBadgeFitScale: 1.65,
     dumanModelContextScale: 0.266,
+    interiorDirection: [1, 0.35, 0.3] as [number, number, number],
+    interiorTargetOffset: [0, -2, 0] as [number, number, number],
+    interiorFitScale: 0.28,
+    interiorFov: 58,
+    waypoints: {
+      doorApproach: {
+        position: [96, 138, 49] as [number, number, number],
+        target: [16, 116, 64] as [number, number, number],
+        fov: 46,
+      },
+      doorThreshold: {
+        position: [45, 134, 49] as [number, number, number],
+        target: [-16, 116, 69] as [number, number, number],
+        fov: 54,
+      },
+      exitThreshold: {
+        position: [62, 136, 49] as [number, number, number],
+        target: [3, 118, 67] as [number, number, number],
+        fov: 50,
+      },
+      dumanApproach: {
+        position: [240, 200, 210] as [number, number, number],
+        target: [20, 120, 105] as [number, number, number],
+        fov: 34,
+      },
+    },
+    paths: {
+      heroToInterior: [
+        { waypoint: 'doorApproach', duration: 0.95 },
+        { waypoint: 'doorThreshold', duration: 0.65 },
+        { waypoint: 'interior', duration: 1 },
+      ],
+      interiorToDuman: [
+        { waypoint: 'exitThreshold', duration: 1.05 },
+        { waypoint: 'dumanApproach', duration: 1.25 },
+        { waypoint: 'dumanFinal', duration: 1.3 },
+      ],
+    },
+    minimumOrbitDistanceScale: 0.04,
   },
   environment: {
     resolution: 256,

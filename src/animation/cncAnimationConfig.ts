@@ -36,7 +36,7 @@ export type CncAxis = (typeof CNC_AXIS_OPTIONS)[number]
 export const CNC_MOTION_CALIBRATION = {
   translationTestDistance: 12,
   tailstockContactDistance: 10.6128,
-  doorOpenDistance: 12,
+  doorOpenDistance: 44,
   turretIndexStepRadians: Math.PI / 18,
   translationDuration: 0.55,
   rotationDuration: 0.55,

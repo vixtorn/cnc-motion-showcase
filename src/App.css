@@ -298,6 +298,43 @@
   border-top: 1px solid rgba(42, 45, 41, 0.13);
 }
 
+.calibration-diagnostics {
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.choreography-controls {
+  background: rgba(42, 45, 41, 0.045);
+}
+
+.choreography-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.sequence-state {
+  color: #61645d;
+  font-size: 0.54rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.sequence-state.is-playing {
+  color: #557146;
+}
+
+.sequence-state.is-paused {
+  color: #9a6a32;
+}
+
+.sequence-state.is-complete {
+  color: #526d78;
+}
+
 .calibration-panel__heading {
   display: grid;
   grid-template-columns: 1fr auto;

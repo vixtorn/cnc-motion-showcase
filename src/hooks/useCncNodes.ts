@@ -185,6 +185,24 @@ const createTransformDiagnostic = (object: Object3D | null) => {
   }
 }
 
+const createInteriorBounds = (nodes: CncNodes) => {
+  const bounds = new Box3()
+  const subjects = [
+    nodes.mainChuckBody,
+    nodes.workpiece,
+    nodes.tailstockQuill,
+    nodes.tailstockTip,
+    nodes.turretLegacyAssembly,
+    nodes.turretCenterHub,
+  ]
+
+  for (const subject of subjects) {
+    if (subject) bounds.expandByObject(subject)
+  }
+
+  return bounds.isEmpty() ? null : bounds
+}
+
 const buildInspection = (scene: Object3D): CncInspection => {
   const findNode = (name: string) => scene.getObjectByName(name) ?? null
   const nodes: CncNodes = {
@@ -334,6 +352,21 @@ const buildInspection = (scene: Object3D): CncInspection => {
     nodes.turretToolBlocks,
     nodes.turretCenterHub,
   ].map(createTransformDiagnostic)
+  const interiorSubjectDiagnostics = [
+    nodes.mainChuckBody,
+    nodes.workpiece,
+    nodes.tailstockQuill,
+    nodes.tailstockTip,
+    nodes.turretLegacyAssembly,
+    nodes.turretCenterHub,
+  ].map(createTransformDiagnostic)
+  const doorwayTransformDiagnostics = [
+    nodes.door,
+    nodes.doorBody,
+    nodes.doorGlass,
+    nodes.doorLowerStrip,
+    nodes.doorFixedFrame,
+  ].map(createTransformDiagnostic)
   const printAudit = () => {
     console.groupCollapsed('[CNC] Complete GLB scene audit')
     console.table(auditRows)
@@ -344,6 +377,12 @@ const buildInspection = (scene: Object3D): CncInspection => {
       `[CNC] Representative metal diagnostics ${JSON.stringify(representativeMetalDiagnostics)}`,
     )
     console.info(`[CNC] Turret transform diagnostics ${JSON.stringify(turretTransformDiagnostics)}`)
+    console.info(
+      `[CNC] Interior subject diagnostics ${JSON.stringify(interiorSubjectDiagnostics)}`,
+    )
+    console.info(
+      `[CNC] Doorway transform diagnostics ${JSON.stringify(doorwayTransformDiagnostics)}`,
+    )
     console.info(
       `[CNC] DUMAN badge diagnostics ${JSON.stringify(dumanBadgeDiagnostic ?? 'Badge not found')}`,
     )
@@ -359,6 +398,7 @@ const buildInspection = (scene: Object3D): CncInspection => {
     nodes,
     checks,
     bounds: new Box3().setFromObject(scene),
+    interiorBounds: createInteriorBounds(nodes),
     dumanBadgeBounds,
     dumanBadgeDiagnostic,
     auditRows,

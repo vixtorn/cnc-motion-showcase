@@ -9,18 +9,30 @@ import {
 } from 'react'
 import { ACESFilmicToneMapping, SRGBColorSpace } from 'three'
 import type { CncAxis } from '../animation/cncAnimationConfig'
+import { useCncChoreography } from '../animation/useCncChoreography'
 import { VISUAL_CALIBRATION } from '../animation/visualCalibrationConfig'
 import type {
   CalibrationDirection,
   CncInspection,
+  CncSequenceState,
 } from '../types/cnc'
-import { CameraRig, type CameraRigHandle } from './CameraRig'
+import {
+  CameraRig,
+  type CameraRigHandle,
+  type CameraWaypointName,
+} from './CameraRig'
 import { CNCModel, type CNCModelHandle } from './CNCModel'
 import { SceneLighting } from './SceneLighting'
 
 export interface CNCSceneHandle {
   resetCamera: () => void
+  goToHero: () => void
+  goToInterior: () => void
+  goToCameraWaypoint: (name: CameraWaypointName) => void
   testDumanCamera: () => void
+  testInteriorToDumanPath: () => void
+  startChuckTest: () => void
+  stopChuckTest: () => void
   setTailstockContact: (contact: boolean) => void
   resetTailstock: () => void
   testTurretCarriage: (axis: CncAxis, direction: CalibrationDirection) => void
@@ -30,26 +42,43 @@ export interface CNCSceneHandle {
   setDoorOpen: (open: boolean) => void
   resetDoor: () => void
   resetAllAssemblies: () => void
+  playSequence: () => void
+  pauseSequence: () => void
+  resumeSequence: () => void
+  resetSequence: () => void
 }
 
 interface CNCSceneProps {
-  isChuckTesting: boolean
   onInspection: (inspection: CncInspection) => void
+  onSequenceStateChange: (state: CncSequenceState) => void
 }
 
 export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCScene(
-  { isChuckTesting, onInspection },
+  { onInspection, onSequenceStateChange },
   ref,
 ) {
   const cameraRigRef = useRef<CameraRigHandle>(null)
   const modelRef = useRef<CNCModelHandle>(null)
   const [inspection, setInspection] = useState<CncInspection | null>(null)
+  const choreography = useCncChoreography({
+    motionRef: modelRef,
+    cameraRef: cameraRigRef,
+    onStateChange: onSequenceStateChange,
+  })
 
   useImperativeHandle(
     ref,
     () => ({
       resetCamera: () => cameraRigRef.current?.resetCamera(),
+      goToHero: () => cameraRigRef.current?.goToHero(),
+      goToInterior: () => cameraRigRef.current?.goToInterior({ duration: 0 }),
+      goToCameraWaypoint: (name) =>
+        cameraRigRef.current?.goToWaypoint(name, { duration: 0 }),
       testDumanCamera: () => cameraRigRef.current?.testDumanCamera(),
+      testInteriorToDumanPath: () =>
+        cameraRigRef.current?.playPath('interiorToDuman'),
+      startChuckTest: () => modelRef.current?.startChuck({ rampDuration: 0.55 }),
+      stopChuckTest: () => modelRef.current?.stopChuck(true),
       setTailstockContact: (contact) => modelRef.current?.setTailstockContact(contact),
       resetTailstock: () => modelRef.current?.resetTailstock(),
       testTurretCarriage: (axis, direction) =>
@@ -60,8 +89,12 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
       setDoorOpen: (open) => modelRef.current?.setDoorOpen(open),
       resetDoor: () => modelRef.current?.resetDoor(),
       resetAllAssemblies: () => modelRef.current?.resetAllAssemblies(),
+      playSequence: choreography.playSequence,
+      pauseSequence: choreography.pauseSequence,
+      resumeSequence: choreography.resumeSequence,
+      resetSequence: choreography.resetSequence,
     }),
-    [],
+    [choreography],
   )
 
   const handleInspection = useCallback(
@@ -91,7 +124,6 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
       <Suspense fallback={null}>
         <CNCModel
           ref={modelRef}
-          isChuckTesting={isChuckTesting}
           onInspection={handleInspection}
         />
       </Suspense>
@@ -99,6 +131,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
         ref={cameraRigRef}
         bounds={inspection?.bounds ?? null}
         dumanBadgeBounds={inspection?.dumanBadgeBounds ?? null}
+        interiorBounds={inspection?.interiorBounds ?? null}
       />
     </Canvas>
   )
