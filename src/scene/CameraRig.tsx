@@ -1,64 +1,501 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import { OrbitControls } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
+import gsap from 'gsap'
 import { MathUtils, PerspectiveCamera, Vector3, type Box3 } from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import { getEffectiveCameraDuration } from '../animation/cncChoreographyConfig'
+import { prefersReducedMotion } from '../animation/motionPreferences'
+import { VISUAL_CALIBRATION } from '../animation/visualCalibrationConfig'
+
+export type CameraWaypointName =
+  | 'hero'
+  | 'doorApproach'
+  | 'doorThreshold'
+  | 'interior'
+  | 'finishedInspection'
+  | 'exitThreshold'
+  | 'exitClearance'
+  | 'dumanApproach'
+  | 'dumanFinal'
+
+export type CameraPathName = 'heroToInterior' | 'interiorToDuman'
+
+export interface CameraTransitionOptions {
+  duration?: number
+  lockControls?: boolean
+  releaseControls?: boolean
+}
+
+export interface CameraPathOptions extends Omit<CameraTransitionOptions, 'duration'> {
+  durationScale?: number
+}
 
 export interface CameraRigHandle {
   resetCamera: () => void
+  goToHero: (options?: CameraTransitionOptions) => void
+  goToInterior: (options?: CameraTransitionOptions) => void
+  goToWaypoint: (name: CameraWaypointName, options?: CameraTransitionOptions) => void
+  playPath: (name: CameraPathName, options?: CameraPathOptions) => void
+  testDumanCamera: () => void
+  pauseTransition: () => void
+  resumeTransition: () => void
+  cancelTransition: () => void
+  setManualControlsEnabled: (enabled: boolean) => void
 }
 
 interface CameraRigProps {
   bounds: Box3 | null
+  dumanBadgeBounds: Box3 | null
+  interiorBounds: Box3 | null
+  finishedWorkpieceBounds: Box3 | null
+  cameraSpeedMultiplier: number
 }
 
-const CAMERA_DIRECTION = new Vector3(1.15, 0.62, 1.3).normalize()
+interface CameraPreset {
+  position: Vector3
+  target: Vector3
+  distance: number
+  radius: number
+  fov: number
+}
+
+interface CameraTransitionStep {
+  name: CameraWaypointName
+  preset: CameraPreset
+  duration: number
+}
+
+const { camera: cameraCalibration } = VISUAL_CALIBRATION
+const CAMERA_DIRECTION = new Vector3(...cameraCalibration.direction).normalize()
+const DUMAN_CAMERA_DIRECTION = new Vector3(...cameraCalibration.dumanDirection).normalize()
+const DUMAN_TARGET_OFFSET = new Vector3(...cameraCalibration.dumanTargetOffset)
+const INTERIOR_CAMERA_DIRECTION = new Vector3(...cameraCalibration.interiorDirection).normalize()
+const INTERIOR_TARGET_OFFSET = new Vector3(...cameraCalibration.interiorTargetOffset)
+const FINISHED_INSPECTION_DIRECTION = new Vector3(
+  ...cameraCalibration.finishedInspectionDirection,
+).normalize()
+const FINISHED_INSPECTION_TARGET_OFFSET = new Vector3(
+  ...cameraCalibration.finishedInspectionTargetOffset,
+)
+
+const presetDiagnostic = (preset: CameraPreset) => ({
+  position: preset.position.toArray().map((value) => Number(value.toFixed(4))),
+  target: preset.target.toArray().map((value) => Number(value.toFixed(4))),
+  distance: Number(preset.distance.toFixed(4)),
+  fov: preset.fov,
+})
 
 export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function CameraRig(
-  { bounds },
+  {
+    bounds,
+    dumanBadgeBounds,
+    interiorBounds,
+    finishedWorkpieceBounds,
+    cameraSpeedMultiplier,
+  },
   ref,
 ) {
   const camera = useThree((state) => state.camera)
   const size = useThree((state) => state.size)
   const invalidate = useThree((state) => state.invalidate)
   const controlsRef = useRef<OrbitControlsImpl>(null)
+  const transitionRef = useRef<gsap.core.Timeline | null>(null)
+  const cameraSpeedMultiplierRef = useRef(cameraSpeedMultiplier)
 
-  const framing = useMemo(() => {
+  useEffect(() => {
+    cameraSpeedMultiplierRef.current = cameraSpeedMultiplier
+  }, [cameraSpeedMultiplier])
+
+  const heroPreset = useMemo<CameraPreset | null>(() => {
     if (!bounds || !(camera instanceof PerspectiveCamera)) return null
 
-    const center = bounds.getCenter(new Vector3())
+    const target = bounds.getCenter(new Vector3())
     const dimensions = bounds.getSize(new Vector3())
     const radius = Math.max(dimensions.length() / 2, 0.001)
-    const verticalFov = MathUtils.degToRad(camera.fov)
-    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * Math.max(size.width / size.height, 0.1))
+    const verticalFov = MathUtils.degToRad(cameraCalibration.fov)
+    const horizontalFov = 2 * Math.atan(
+      Math.tan(verticalFov / 2) * Math.max(size.width / size.height, 0.1),
+    )
     const limitingFov = Math.min(verticalFov, horizontalFov)
-    const distance = (radius / Math.sin(limitingFov / 2)) * 1.08
+    const aspect = size.width / Math.max(size.height, 1)
+    const distanceScale =
+      aspect <= cameraCalibration.mobileAspectThreshold
+        ? cameraCalibration.mobileDistanceScale
+        : cameraCalibration.desktopDistanceScale
+    const distance = (radius / Math.sin(limitingFov / 2)) * distanceScale
 
     return {
-      center,
-      position: center.clone().addScaledVector(CAMERA_DIRECTION, distance),
+      target,
+      position: target.clone().addScaledVector(CAMERA_DIRECTION, distance),
       distance,
       radius,
+      fov: cameraCalibration.fov,
     }
   }, [bounds, camera, size.height, size.width])
 
-  const applyFit = useCallback(() => {
-    if (!framing || !(camera instanceof PerspectiveCamera)) return
+  const dumanPreset = useMemo<CameraPreset | null>(() => {
+    if (!dumanBadgeBounds || !heroPreset || !(camera instanceof PerspectiveCamera)) return null
 
-    camera.position.copy(framing.position)
-    camera.near = Math.max(framing.distance / 100, 0.01)
-    camera.far = Math.max(framing.distance + framing.radius * 8, 1000)
-    camera.updateProjectionMatrix()
-    controlsRef.current?.target.copy(framing.center)
-    controlsRef.current?.update()
-    invalidate()
-  }, [camera, framing, invalidate])
+    const target = dumanBadgeBounds.getCenter(new Vector3()).add(DUMAN_TARGET_OFFSET)
+    const badgeSize = dumanBadgeBounds.getSize(new Vector3())
+    const badgeRadius = Math.max(badgeSize.length() / 2, 0.001)
+    const verticalFov = MathUtils.degToRad(camera.fov)
+    const badgeFitDistance =
+      (badgeRadius / Math.sin(verticalFov / 2)) * cameraCalibration.dumanBadgeFitScale
+    const contextDistance = heroPreset.radius * cameraCalibration.dumanModelContextScale
+    const distance = Math.max(badgeFitDistance, contextDistance)
 
-  useImperativeHandle(ref, () => ({ resetCamera: applyFit }), [applyFit])
+    return {
+      target,
+      position: target.clone().addScaledVector(DUMAN_CAMERA_DIRECTION, distance),
+      distance,
+      radius: heroPreset.radius,
+      fov: cameraCalibration.fov,
+    }
+  }, [camera, dumanBadgeBounds, heroPreset])
+
+  const interiorPreset = useMemo<CameraPreset | null>(() => {
+    if (!interiorBounds || !heroPreset || !(camera instanceof PerspectiveCamera)) return null
+
+    const target = interiorBounds.getCenter(new Vector3()).add(INTERIOR_TARGET_OFFSET)
+    const dimensions = interiorBounds.getSize(new Vector3())
+    const radius = Math.max(dimensions.length() / 2, 0.001)
+    const verticalFov = MathUtils.degToRad(cameraCalibration.fov)
+    const horizontalFov = 2 * Math.atan(
+      Math.tan(verticalFov / 2) * Math.max(size.width / size.height, 0.1),
+    )
+    const limitingFov = Math.min(verticalFov, horizontalFov)
+    const distance =
+      (radius / Math.sin(limitingFov / 2)) * cameraCalibration.interiorFitScale
+
+    return {
+      target,
+      position: target.clone().addScaledVector(INTERIOR_CAMERA_DIRECTION, distance),
+      distance,
+      radius: heroPreset.radius,
+      fov: cameraCalibration.interiorFov,
+    }
+  }, [camera, heroPreset, interiorBounds, size.height, size.width])
+
+  const finishedInspectionPreset = useMemo<CameraPreset | null>(() => {
+    if (!finishedWorkpieceBounds || !heroPreset) return null
+
+    const target = finishedWorkpieceBounds
+      .getCenter(new Vector3())
+      .add(FINISHED_INSPECTION_TARGET_OFFSET)
+    const distance = cameraCalibration.finishedInspectionDistance
+    return {
+      target,
+      position: target.clone().addScaledVector(FINISHED_INSPECTION_DIRECTION, distance),
+      distance,
+      radius: heroPreset.radius,
+      fov: cameraCalibration.finishedInspectionFov,
+    }
+  }, [finishedWorkpieceBounds, heroPreset])
+
+  const calibratedWaypointPresets = useMemo(() => {
+    if (!heroPreset) return null
+
+    const createPreset = (
+      calibration: (typeof cameraCalibration.waypoints)[keyof typeof cameraCalibration.waypoints],
+    ): CameraPreset => {
+      const position = new Vector3(...calibration.position)
+      const target = new Vector3(...calibration.target)
+      return {
+        position,
+        target,
+        distance: position.distanceTo(target),
+        radius: heroPreset.radius,
+        fov: calibration.fov,
+      }
+    }
+
+    return {
+      doorApproach: createPreset(cameraCalibration.waypoints.doorApproach),
+      doorThreshold: createPreset(cameraCalibration.waypoints.doorThreshold),
+      exitThreshold: createPreset(cameraCalibration.waypoints.exitThreshold),
+      exitClearance: createPreset(cameraCalibration.waypoints.exitClearance),
+      dumanApproach: createPreset(cameraCalibration.waypoints.dumanApproach),
+    }
+  }, [heroPreset])
+
+  const getPreset = useCallback(
+    (name: CameraWaypointName): CameraPreset | null => {
+      if (name === 'hero') return heroPreset
+      if (name === 'interior') return interiorPreset
+      if (name === 'finishedInspection') return finishedInspectionPreset
+      if (name === 'dumanFinal') return dumanPreset
+      return calibratedWaypointPresets?.[name] ?? null
+    },
+    [
+      calibratedWaypointPresets,
+      dumanPreset,
+      finishedInspectionPreset,
+      heroPreset,
+      interiorPreset,
+    ],
+  )
+
+  const configureClipping = useCallback(
+    (preset: CameraPreset) => {
+      if (!(camera instanceof PerspectiveCamera)) return
+      camera.near = Math.max(preset.distance / cameraCalibration.nearDistanceDivisor, 0.01)
+      camera.far = Math.max(
+        preset.distance + preset.radius * cameraCalibration.farRadiusMultiplier,
+        1000,
+      )
+      camera.updateProjectionMatrix()
+    },
+    [camera],
+  )
+
+  const setManualControlsEnabled = useCallback(
+    (enabled: boolean) => {
+      if (controlsRef.current) controlsRef.current.enabled = enabled
+      invalidate()
+    },
+    [invalidate],
+  )
+
+  const cancelTransition = useCallback(() => {
+    if (import.meta.env.DEV && transitionRef.current) {
+      console.info(
+        `[CNC] Camera transition cancelled ${JSON.stringify({
+          progress: Number(transitionRef.current.progress().toFixed(4)),
+        })}`,
+      )
+    }
+    transitionRef.current?.kill()
+    transitionRef.current = null
+    gsap.killTweensOf(camera)
+    gsap.killTweensOf(camera.position)
+    if (controlsRef.current) gsap.killTweensOf(controlsRef.current.target)
+  }, [camera])
+
+  const applyImmediate = useCallback(
+    (preset: CameraPreset, releaseControls: boolean) => {
+      if (!(camera instanceof PerspectiveCamera)) return
+      const controls = controlsRef.current
+      camera.position.copy(preset.position)
+      camera.fov = preset.fov
+      controls?.target.copy(preset.target)
+      configureClipping(preset)
+      controls?.update()
+      if (releaseControls && controls) controls.enabled = true
+      invalidate()
+    },
+    [camera, configureClipping, invalidate],
+  )
+
+  const runTransition = useCallback(
+    (
+      steps: CameraTransitionStep[],
+      label: string,
+      options: Omit<CameraTransitionOptions, 'duration'> = {},
+    ) => {
+      if (!(camera instanceof PerspectiveCamera) || steps.length === 0) return
+      const controls = controlsRef.current
+      const lockControls = options.lockControls ?? true
+      const releaseControls = options.releaseControls ?? true
+      const finalStep = steps.at(-1)
+      if (!finalStep) return
+
+      cancelTransition()
+      if (lockControls && controls) controls.enabled = false
+
+      if (!controls || steps.every((step) => step.duration === 0)) {
+        applyImmediate(finalStep.preset, releaseControls)
+        if (import.meta.env.DEV) {
+          console.info(
+            `[CNC] Camera ${label} applied immediately ${JSON.stringify(presetDiagnostic(finalStep.preset))}`,
+          )
+        }
+        return
+      }
+
+      configureClipping(steps[0].preset)
+      const transition = gsap.timeline({
+        defaults: { ease: 'power3.inOut', overwrite: true },
+        onUpdate: () => {
+          camera.updateProjectionMatrix()
+          controls.update()
+          invalidate()
+        },
+        onComplete: () => {
+          if (transitionRef.current === transition) transitionRef.current = null
+          configureClipping(finalStep.preset)
+          if (releaseControls) controls.enabled = true
+          controls.update()
+          invalidate()
+          if (import.meta.env.DEV) {
+            console.info(
+              `[CNC] Camera ${label} complete ${JSON.stringify(presetDiagnostic(finalStep.preset))}`,
+            )
+          }
+        },
+      })
+
+      let cursor = 0
+      for (const step of steps) {
+        const { preset, duration } = step
+        transition
+          .to(
+            camera.position,
+            { x: preset.position.x, y: preset.position.y, z: preset.position.z, duration },
+            cursor,
+          )
+          .to(
+            controls.target,
+            { x: preset.target.x, y: preset.target.y, z: preset.target.z, duration },
+            cursor,
+          )
+          .to(camera, { fov: preset.fov, duration }, cursor)
+        cursor += duration
+      }
+
+      transitionRef.current = transition
+      if (import.meta.env.DEV) {
+        console.info(
+          `[CNC] Camera ${label} started ${JSON.stringify({
+            duration: Number(cursor.toFixed(3)),
+            waypoints: steps.map((step) => ({
+              name: step.name,
+              duration: step.duration,
+              ...presetDiagnostic(step.preset),
+            })),
+          })}`,
+        )
+      }
+    },
+    [applyImmediate, camera, cancelTransition, configureClipping, invalidate],
+  )
+
+  const goToWaypoint = useCallback(
+    (name: CameraWaypointName, options: CameraTransitionOptions = {}) => {
+      const preset = getPreset(name)
+      if (!preset) return
+      const duration = prefersReducedMotion()
+        ? 0
+        : getEffectiveCameraDuration(
+            options.duration ?? cameraCalibration.presetTransitionDuration,
+            cameraSpeedMultiplierRef.current,
+          )
+      runTransition([{ name, preset, duration }], `waypoint ${name.toUpperCase()}`, options)
+    },
+    [getPreset, runTransition],
+  )
+
+  const playPath = useCallback(
+    (name: CameraPathName, options: CameraPathOptions = {}) => {
+      const durationScale = prefersReducedMotion() ? 0 : (options.durationScale ?? 1)
+      const path = cameraCalibration.paths[name]
+      const steps = path.flatMap((step) => {
+        const waypoint = step.waypoint as CameraWaypointName
+        const preset = getPreset(waypoint)
+        return preset
+          ? [
+              {
+                name: waypoint,
+                preset,
+                duration: getEffectiveCameraDuration(
+                  step.duration * durationScale,
+                  cameraSpeedMultiplierRef.current,
+                ),
+              },
+            ]
+          : []
+      })
+      runTransition(steps, `path ${name.toUpperCase()}`, options)
+    },
+    [getPreset, runTransition],
+  )
+
+  const goToHero = useCallback(
+    (options: CameraTransitionOptions = {}) => goToWaypoint('hero', options),
+    [goToWaypoint],
+  )
+
+  const goToInterior = useCallback(
+    (options: CameraTransitionOptions = {}) => goToWaypoint('interior', options),
+    [goToWaypoint],
+  )
+
+  const resetCamera = useCallback(() => goToHero(), [goToHero])
+
+  const testDumanCamera = useCallback(
+    () => goToWaypoint('dumanFinal', { duration: 0 }),
+    [goToWaypoint],
+  )
+
+  const pauseTransition = useCallback(() => transitionRef.current?.pause(), [])
+  const resumeTransition = useCallback(() => transitionRef.current?.resume(), [])
+
+  const logCameraCalibration = useCallback(() => {
+    if (!import.meta.env.DEV || !controlsRef.current) return
+    console.info(
+      `[CNC] Camera calibration ${JSON.stringify({
+        position: camera.position.toArray().map((value) => Number(value.toFixed(4))),
+        target: controlsRef.current.target.toArray().map((value) => Number(value.toFixed(4))),
+      })}`,
+    )
+  }, [camera])
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      resetCamera,
+      goToHero,
+      goToInterior,
+      goToWaypoint,
+      playPath,
+      testDumanCamera,
+      pauseTransition,
+      resumeTransition,
+      cancelTransition,
+      setManualControlsEnabled,
+    }),
+    [
+      cancelTransition,
+      goToHero,
+      goToInterior,
+      goToWaypoint,
+      pauseTransition,
+      playPath,
+      resetCamera,
+      resumeTransition,
+      setManualControlsEnabled,
+      testDumanCamera,
+    ],
+  )
 
   useEffect(() => {
-    applyFit()
-  }, [applyFit])
+    if (!heroPreset || !(camera instanceof PerspectiveCamera)) return
+    goToWaypoint('hero', { duration: 0 })
+  }, [camera, goToWaypoint, heroPreset])
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const names: CameraWaypointName[] = [
+      'hero',
+      'doorApproach',
+      'doorThreshold',
+      'interior',
+      'finishedInspection',
+      'exitThreshold',
+      'exitClearance',
+      'dumanApproach',
+      'dumanFinal',
+    ]
+    for (const name of names) {
+      const preset = getPreset(name)
+      if (preset) {
+        console.info(`[CNC] Camera waypoint ${name.toUpperCase()} ${JSON.stringify(presetDiagnostic(preset))}`)
+      }
+    }
+  }, [getPreset])
+
+  useEffect(() => () => cancelTransition(), [cancelTransition])
 
   return (
     <OrbitControls
@@ -66,12 +503,12 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
       makeDefault
       enableDamping
       dampingFactor={0.075}
-      minDistance={framing ? framing.radius * 0.45 : 1}
-      maxDistance={framing ? framing.distance * 2.4 : 10000}
+      minDistance={heroPreset ? heroPreset.radius * cameraCalibration.minimumOrbitDistanceScale : 1}
+      maxDistance={heroPreset ? heroPreset.distance * 2.4 : 10000}
       minPolarAngle={Math.PI * 0.08}
       maxPolarAngle={Math.PI * 0.88}
-      target={framing?.center}
       onChange={() => invalidate()}
+      onEnd={logCameraCalibration}
     />
   )
 })
