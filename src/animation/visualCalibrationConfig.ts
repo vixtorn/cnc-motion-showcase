@@ -19,9 +19,9 @@ export const VISUAL_CALIBRATION = {
     dumanTargetOffset: [4.5, 1.5, -4.25] as [number, number, number],
     dumanBadgeFitScale: 1.65,
     dumanModelContextScale: 0.266,
-    interiorDirection: [1, 0.35, 0.3] as [number, number, number],
-    interiorTargetOffset: [0, -2, 0] as [number, number, number],
-    interiorFitScale: 0.28,
+    interiorDirection: [0.9, 0.35, -0.3] as [number, number, number],
+    interiorTargetOffset: [0, -2.8, 0] as [number, number, number],
+    interiorFitScale: 0.295,
     interiorFov: 58,
     finishedInspectionDirection: [1, 0.45, 0.6] as [number, number, number],
     finishedInspectionTargetOffset: [0, 1.5, 0] as [number, number, number],
@@ -29,13 +29,13 @@ export const VISUAL_CALIBRATION = {
     finishedInspectionFov: 44,
     waypoints: {
       doorApproach: {
-        position: [96, 138, 49] as [number, number, number],
-        target: [16, 116, 64] as [number, number, number],
+        position: [108, 138, 60] as [number, number, number],
+        target: [16, 116, 74] as [number, number, number],
         fov: 46,
       },
       doorThreshold: {
-        position: [45, 134, 49] as [number, number, number],
-        target: [-16, 116, 69] as [number, number, number],
+        position: [54, 132, 60] as [number, number, number],
+        target: [-12, 113, 78] as [number, number, number],
         fov: 54,
       },
       exitThreshold: {
@@ -43,10 +43,15 @@ export const VISUAL_CALIBRATION = {
         target: [3, 118, 67] as [number, number, number],
         fov: 50,
       },
+      exitClearance: {
+        position: [420, 170, 49] as [number, number, number],
+        target: [3, 118, 67] as [number, number, number],
+        fov: 38,
+      },
       dumanApproach: {
-        position: [240, 200, 210] as [number, number, number],
-        target: [20, 120, 105] as [number, number, number],
-        fov: 34,
+        position: [420, 190, 192] as [number, number, number],
+        target: [44, 154, 144] as [number, number, number],
+        fov: 36,
       },
     },
     paths: {
@@ -57,8 +62,9 @@ export const VISUAL_CALIBRATION = {
       ],
       interiorToDuman: [
         { waypoint: 'exitThreshold', duration: 1.05 },
-        { waypoint: 'dumanApproach', duration: 1.25 },
-        { waypoint: 'dumanFinal', duration: 1.3 },
+        { waypoint: 'exitClearance', duration: 1.15 },
+        { waypoint: 'dumanApproach', duration: 1.1 },
+        { waypoint: 'dumanFinal', duration: 1.4 },
       ],
     },
     minimumOrbitDistanceScale: 0.04,

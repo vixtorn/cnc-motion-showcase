@@ -14,6 +14,7 @@ export type CameraWaypointName =
   | 'interior'
   | 'finishedInspection'
   | 'exitThreshold'
+  | 'exitClearance'
   | 'dumanApproach'
   | 'dumanFinal'
 
@@ -201,6 +202,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
       doorApproach: createPreset(cameraCalibration.waypoints.doorApproach),
       doorThreshold: createPreset(cameraCalibration.waypoints.doorThreshold),
       exitThreshold: createPreset(cameraCalibration.waypoints.exitThreshold),
+      exitClearance: createPreset(cameraCalibration.waypoints.exitClearance),
       dumanApproach: createPreset(cameraCalibration.waypoints.dumanApproach),
     }
   }, [heroPreset])
@@ -456,6 +458,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
       'interior',
       'finishedInspection',
       'exitThreshold',
+      'exitClearance',
       'dumanApproach',
       'dumanFinal',
     ]

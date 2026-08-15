@@ -3,6 +3,7 @@ import gsap from 'gsap'
 import { CNC_CHOREOGRAPHY } from './cncChoreographyConfig'
 import { CNC_MACHINING } from './cncMachiningConfig'
 import { prefersReducedMotion } from './motionPreferences'
+import { VISUAL_CALIBRATION } from './visualCalibrationConfig'
 import type { CameraRigHandle } from '../scene/CameraRig'
 import type { CNCModelHandle } from '../scene/CNCModel'
 import type { CoolantEffectHandle } from '../effects/CoolantEffect'
@@ -102,30 +103,37 @@ export function useCncChoreography({
       doorStart + duration(timings.doorOpenDuration) + duration(timings.postDoorHold)
     const turret = CNC_CHOREOGRAPHY.turret
     const longitudinalOffsets = { [turret.longitudinalAxis]: turret.longitudinalOffset }
-    const readyOffsets = {
-      [turret.longitudinalAxis]: turret.longitudinalOffset,
-      [turret.radialAxis]: turret.radialOffset,
-    }
-    const radialEnd = at(timings.turretRadialStartTime) + duration(timings.turretRadialDuration)
-    const readyEnd = radialEnd + duration(timings.readyHold)
     const machiningTimings = CNC_MACHINING.timings
-    const cuttingContactStart = readyEnd
-    const cuttingContactEnd =
-      cuttingContactStart + duration(machiningTimings.cuttingContactDuration)
+    const singleApproachStart = at(timings.turretRadialStartTime)
+    const cuttingContactStart =
+      singleApproachStart + duration(machiningTimings.singleApproachDuration)
     const coolantStart =
-      cuttingContactEnd + duration(machiningTimings.postContactCoolantDelay)
+      cuttingContactStart + duration(machiningTimings.postContactCoolantDelay)
     const workpieceSwap =
       coolantStart + duration(machiningTimings.workpieceSwapAfterCoolantStart)
+    const occlusionRampStart =
+      workpieceSwap - duration(machiningTimings.occlusionRampBeforeSwap)
+    const occlusionRampOutStart =
+      workpieceSwap + duration(machiningTimings.occlusionHoldAfterSwap)
     const coolantRampOutStart =
       workpieceSwap + duration(machiningTimings.coolantRampOutAfterSwap)
     const turretRetractStart =
       workpieceSwap + duration(machiningTimings.turretRetractAfterSwap)
     const spindleDecelerationStart =
       workpieceSwap + duration(machiningTimings.spindleDecelerationAfterSwap)
-    const inspectionCameraStart =
-      workpieceSwap + duration(machiningTimings.inspectionCameraAfterSwap)
-    const inspectionCameraEnd =
-      inspectionCameraStart + duration(machiningTimings.inspectionCameraDuration)
+    const coolantRampOutEnd =
+      coolantRampOutStart + duration(machiningTimings.coolantRampOutDuration)
+    const turretRetractEnd =
+      turretRetractStart + duration(machiningTimings.turretRetractDuration)
+    const interiorResultHoldStart = Math.max(coolantRampOutEnd, turretRetractEnd)
+    const interiorResultHoldEnd =
+      interiorResultHoldStart + duration(machiningTimings.interiorResultHoldDuration)
+    const exitToDumanPathDuration = reducedMotion
+      ? 0
+      : VISUAL_CALIBRATION.camera.paths.interiorToDuman.reduce(
+          (total, step) => total + step.duration * scale,
+          0,
+        )
     const cuttingOffsets = {
       [turret.longitudinalAxis]:
         turret.longitudinalOffset +
@@ -135,6 +143,7 @@ export function useCncChoreography({
         (CNC_MACHINING.turret.contactAdditionalOffsets[turret.radialAxis] ?? 0),
     }
     const coolantLevel = { value: 0 }
+    const occlusionLevel = { value: 0 }
 
     const timeline = gsap.timeline({
       paused: true,
@@ -189,21 +198,13 @@ export function useCncChoreography({
     )
     motion.addTurretCarriageToTimeline(
       timeline,
-      readyOffsets,
-      at(timings.turretRadialStartTime),
-      duration(timings.turretRadialDuration),
-      'radial-ready',
-    )
-    timeline.to({}, { duration: duration(timings.readyHold) }, radialEnd)
-    motion.addTurretCarriageToTimeline(
-      timeline,
       cuttingOffsets,
-      cuttingContactStart,
-      duration(machiningTimings.cuttingContactDuration),
-      'cutting-contact',
+      singleApproachStart,
+      duration(machiningTimings.singleApproachDuration),
+      'single-machining-approach',
     )
-
     if (!reducedMotion) {
+      timeline.call(() => coolant.triggerHotChips(), [], cuttingContactStart)
       timeline.to(
         coolantLevel,
         {
@@ -214,6 +215,29 @@ export function useCncChoreography({
           onUpdate: () => coolant.setCoolantIntensity(coolantLevel.value),
         },
         coolantStart,
+      )
+    }
+
+    if (!reducedMotion) {
+      timeline.to(
+        occlusionLevel,
+        {
+          value: 1,
+          duration: machiningTimings.occlusionRampBeforeSwap,
+          ease: 'power2.in',
+          onUpdate: () => coolant.setRevealOcclusion(occlusionLevel.value),
+        },
+        occlusionRampStart,
+      )
+      timeline.to(
+        occlusionLevel,
+        {
+          value: 0,
+          duration: machiningTimings.occlusionRampOutDuration,
+          ease: 'power2.out',
+          onUpdate: () => coolant.setRevealOcclusion(occlusionLevel.value),
+        },
+        occlusionRampOutStart,
       )
     }
 
@@ -249,20 +273,25 @@ export function useCncChoreography({
       [],
       spindleDecelerationStart,
     )
+    timeline.to(
+      {},
+      { duration: duration(machiningTimings.interiorResultHoldDuration) },
+      interiorResultHoldStart,
+    )
     timeline.call(
       () =>
-        camera.goToWaypoint('finishedInspection', {
-          duration: duration(machiningTimings.inspectionCameraDuration),
+        camera.playPath('interiorToDuman', {
+          durationScale: scale,
           lockControls: false,
           releaseControls: false,
         }),
       [],
-      inspectionCameraStart,
+      interiorResultHoldEnd,
     )
     timeline.to(
       {},
-      { duration: duration(machiningTimings.inspectionHold) },
-      inspectionCameraEnd,
+      { duration: exitToDumanPathDuration },
+      interiorResultHoldEnd,
     )
 
     timelineRef.current = timeline
@@ -285,10 +314,22 @@ export function useCncChoreography({
           turretRadialOffset: turret.radialOffset,
           turretSequenceIndexAngleDeg: turret.sequenceIndexAngleDeg,
           cuttingContactStart: Number(cuttingContactStart.toFixed(3)),
+          singleApproachStart: Number(singleApproachStart.toFixed(3)),
           coolantStart: Number(coolantStart.toFixed(3)),
           workpieceSwap: Number(workpieceSwap.toFixed(3)),
+          occlusionRampStart: Number(occlusionRampStart.toFixed(3)),
+          occlusionRampOutStart: Number(occlusionRampOutStart.toFixed(3)),
           coolantRampOutStart: Number(coolantRampOutStart.toFixed(3)),
-          inspectionCameraStart: Number(inspectionCameraStart.toFixed(3)),
+          interiorResultHoldStart: Number(interiorResultHoldStart.toFixed(3)),
+          interiorResultHoldEnd: Number(interiorResultHoldEnd.toFixed(3)),
+          exitToDumanPathDuration: Number(exitToDumanPathDuration.toFixed(3)),
+          cameraBeatOrder: [
+            'doorApproach',
+            'doorThreshold',
+            'interior',
+            'exitThreshold',
+            'dumanFinal',
+          ],
           cuttingOffsets,
           inspectionOffsets: CNC_MACHINING.turret.inspectionOffsets,
         })}`,

@@ -14,16 +14,14 @@ export const CNC_CHOREOGRAPHY = {
     turretIndexStartTime: 8.65,
     turretIndexDuration: 0.7,
     turretRadialStartTime: 9.4,
-    turretRadialDuration: 1,
-    readyHold: 0.75,
   },
   turret: {
     longitudinalAxis: 'z' as CncAxis,
     longitudinalOffset: 6,
     radialAxis: 'x' as CncAxis,
     radialOffset: 5,
-    sequenceIndexAngleDeg: 25,
-    sequenceIndexRadians: (25 * Math.PI) / 180,
+    sequenceIndexAngleDeg: 30,
+    sequenceIndexRadians: Math.PI / 6,
   },
   reducedMotion: {
     durationScale: 0.08,
