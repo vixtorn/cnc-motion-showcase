@@ -373,6 +373,24 @@
   gap: 0.35rem;
 }
 
+.camera-speed-control {
+  display: grid;
+  grid-template-columns: 1fr 3.25rem 3.5rem 3.25rem;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.camera-speed-control > span,
+.camera-speed-control output {
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.camera-speed-control output {
+  text-align: center;
+}
+
 .translation-controls {
   display: grid;
   gap: 0.3rem;

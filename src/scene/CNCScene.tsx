@@ -57,10 +57,11 @@ export interface CNCSceneHandle {
 interface CNCSceneProps {
   onInspection: (inspection: CncInspection) => void
   onSequenceStateChange: (state: CncSequenceState) => void
+  cameraSpeedMultiplier: number
 }
 
 export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCScene(
-  { onInspection, onSequenceStateChange },
+  { onInspection, onSequenceStateChange, cameraSpeedMultiplier },
   ref,
 ) {
   const cameraRigRef = useRef<CameraRigHandle>(null)
@@ -71,6 +72,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     motionRef: modelRef,
     cameraRef: cameraRigRef,
     coolantRef,
+    cameraSpeedMultiplier,
     onStateChange: onSequenceStateChange,
   })
 
@@ -153,6 +155,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
         dumanBadgeBounds={inspection?.dumanBadgeBounds ?? null}
         interiorBounds={inspection?.interiorBounds ?? null}
         finishedWorkpieceBounds={inspection?.finishedWorkpieceBounds ?? null}
+        cameraSpeedMultiplier={cameraSpeedMultiplier}
       />
       <CoolantEffect ref={coolantRef} />
     </Canvas>

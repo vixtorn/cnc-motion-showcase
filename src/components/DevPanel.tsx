@@ -1,4 +1,5 @@
 import { CNC_AXIS_OPTIONS, type CncAxis } from '../animation/cncAnimationConfig'
+import { CNC_CHOREOGRAPHY } from '../animation/cncChoreographyConfig'
 import type {
   CalibrationDirection,
   CncInspection,
@@ -11,6 +12,8 @@ interface DevPanelProps {
   inspection: CncInspection | null
   isChuckTesting: boolean
   sequenceState: CncSequenceState
+  cameraSpeedMultiplier: number
+  onCameraSpeedMultiplierChange: (multiplier: number) => void
   onPrintAudit: () => void
   onResetCamera: () => void
   onTestCameraWaypoint: (name: CameraWaypointName) => void
@@ -54,6 +57,8 @@ export function DevPanel({
   inspection,
   isChuckTesting,
   sequenceState,
+  cameraSpeedMultiplier,
+  onCameraSpeedMultiplierChange,
   onPrintAudit,
   onResetCamera,
   onTestCameraWaypoint,
@@ -81,6 +86,17 @@ export function DevPanel({
 }: DevPanelProps) {
   const checks = inspection?.checks
   const diagnosticsDisabled = sequenceState === 'playing' || sequenceState === 'paused'
+  const cameraSpeed = CNC_CHOREOGRAPHY.cameraSpeed
+  const updateCameraSpeed = (direction: -1 | 1) => {
+    const nextMultiplier = Math.min(
+      cameraSpeed.maximumMultiplier,
+      Math.max(
+        cameraSpeed.minimumMultiplier,
+        cameraSpeedMultiplier + direction * cameraSpeed.step,
+      ),
+    )
+    onCameraSpeedMultiplierChange(Number(nextMultiplier.toFixed(2)))
+  }
 
   return (
     <aside className="dev-panel" aria-label="CNC development controls">
@@ -175,6 +191,26 @@ export function DevPanel({
 
         <section className="calibration-group">
           <h2>CAMERA PATH CALIBRATION</h2>
+          <div className="camera-speed-control">
+            <span>CAMERA SPEED</span>
+            <button
+              type="button"
+              aria-label="Decrease camera speed"
+              disabled={cameraSpeedMultiplier <= cameraSpeed.minimumMultiplier}
+              onClick={() => updateCameraSpeed(-1)}
+            >
+              [ - ]
+            </button>
+            <output aria-live="polite">{cameraSpeedMultiplier.toFixed(2)}x</output>
+            <button
+              type="button"
+              aria-label="Increase camera speed"
+              disabled={cameraSpeedMultiplier >= cameraSpeed.maximumMultiplier}
+              onClick={() => updateCameraSpeed(1)}
+            >
+              [ + ]
+            </button>
+          </div>
           <div className="calibration-actions">
             <button type="button" disabled={!inspection} onClick={onResetCamera}>
               [ RESET VIEW ]

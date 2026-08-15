@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import './App.css'
 import type { CncAxis } from './animation/cncAnimationConfig'
+import { CNC_CHOREOGRAPHY } from './animation/cncChoreographyConfig'
 import { DevPanel } from './components/DevPanel'
 import { LoadingScreen } from './components/LoadingScreen'
 import { ModelErrorBoundary } from './components/ModelErrorBoundary'
@@ -16,6 +17,9 @@ function App() {
   const [inspection, setInspection] = useState<CncInspection | null>(null)
   const [isChuckTesting, setIsChuckTesting] = useState(false)
   const [sequenceState, setSequenceState] = useState<CncSequenceState>('idle')
+  const [cameraSpeedMultiplier, setCameraSpeedMultiplier] = useState<number>(
+    CNC_CHOREOGRAPHY.cameraSpeed.defaultMultiplier,
+  )
 
   const handleInspection = useCallback((nextInspection: CncInspection) => {
     setInspection(nextInspection)
@@ -61,6 +65,7 @@ function App() {
             ref={sceneRef}
             onInspection={handleInspection}
             onSequenceStateChange={handleSequenceStateChange}
+            cameraSpeedMultiplier={cameraSpeedMultiplier}
           />
         </ModelErrorBoundary>
         <LoadingScreen />
@@ -84,6 +89,8 @@ function App() {
           inspection={inspection}
           isChuckTesting={isChuckTesting}
           sequenceState={sequenceState}
+          cameraSpeedMultiplier={cameraSpeedMultiplier}
+          onCameraSpeedMultiplierChange={setCameraSpeedMultiplier}
           onPrintAudit={() => inspection?.printAudit()}
           onResetCamera={handleResetCamera}
           onTestCameraWaypoint={(name) => sceneRef.current?.goToCameraWaypoint(name)}

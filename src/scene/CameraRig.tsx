@@ -4,6 +4,7 @@ import { useThree } from '@react-three/fiber'
 import gsap from 'gsap'
 import { MathUtils, PerspectiveCamera, Vector3, type Box3 } from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import { getEffectiveCameraDuration } from '../animation/cncChoreographyConfig'
 import { prefersReducedMotion } from '../animation/motionPreferences'
 import { VISUAL_CALIBRATION } from '../animation/visualCalibrationConfig'
 
@@ -48,6 +49,7 @@ interface CameraRigProps {
   dumanBadgeBounds: Box3 | null
   interiorBounds: Box3 | null
   finishedWorkpieceBounds: Box3 | null
+  cameraSpeedMultiplier: number
 }
 
 interface CameraPreset {
@@ -85,7 +87,13 @@ const presetDiagnostic = (preset: CameraPreset) => ({
 })
 
 export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function CameraRig(
-  { bounds, dumanBadgeBounds, interiorBounds, finishedWorkpieceBounds },
+  {
+    bounds,
+    dumanBadgeBounds,
+    interiorBounds,
+    finishedWorkpieceBounds,
+    cameraSpeedMultiplier,
+  },
   ref,
 ) {
   const camera = useThree((state) => state.camera)
@@ -93,6 +101,11 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
   const invalidate = useThree((state) => state.invalidate)
   const controlsRef = useRef<OrbitControlsImpl>(null)
   const transitionRef = useRef<gsap.core.Timeline | null>(null)
+  const cameraSpeedMultiplierRef = useRef(cameraSpeedMultiplier)
+
+  useEffect(() => {
+    cameraSpeedMultiplierRef.current = cameraSpeedMultiplier
+  }, [cameraSpeedMultiplier])
 
   const heroPreset = useMemo<CameraPreset | null>(() => {
     if (!bounds || !(camera instanceof PerspectiveCamera)) return null
@@ -364,7 +377,10 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
       if (!preset) return
       const duration = prefersReducedMotion()
         ? 0
-        : (options.duration ?? cameraCalibration.presetTransitionDuration)
+        : getEffectiveCameraDuration(
+            options.duration ?? cameraCalibration.presetTransitionDuration,
+            cameraSpeedMultiplierRef.current,
+          )
       runTransition([{ name, preset, duration }], `waypoint ${name.toUpperCase()}`, options)
     },
     [getPreset, runTransition],
@@ -378,7 +394,16 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
         const waypoint = step.waypoint as CameraWaypointName
         const preset = getPreset(waypoint)
         return preset
-          ? [{ name: waypoint, preset, duration: step.duration * durationScale }]
+          ? [
+              {
+                name: waypoint,
+                preset,
+                duration: getEffectiveCameraDuration(
+                  step.duration * durationScale,
+                  cameraSpeedMultiplierRef.current,
+                ),
+              },
+            ]
           : []
       })
       runTransition(steps, `path ${name.toUpperCase()}`, options)

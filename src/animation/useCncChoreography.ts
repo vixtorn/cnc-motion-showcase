@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, type RefObject } from 'react'
 import gsap from 'gsap'
-import { CNC_CHOREOGRAPHY } from './cncChoreographyConfig'
+import {
+  CNC_CHOREOGRAPHY,
+  getEffectiveCameraDuration,
+} from './cncChoreographyConfig'
 import { CNC_MACHINING } from './cncMachiningConfig'
 import { prefersReducedMotion } from './motionPreferences'
 import { VISUAL_CALIBRATION } from './visualCalibrationConfig'
@@ -13,6 +16,7 @@ interface UseCncChoreographyOptions {
   motionRef: RefObject<CNCModelHandle | null>
   cameraRef: RefObject<CameraRigHandle | null>
   coolantRef: RefObject<CoolantEffectHandle | null>
+  cameraSpeedMultiplier: number
   onStateChange: (state: CncSequenceState) => void
 }
 
@@ -27,6 +31,7 @@ export function useCncChoreography({
   motionRef,
   cameraRef,
   coolantRef,
+  cameraSpeedMultiplier,
   onStateChange,
 }: UseCncChoreographyOptions): CncChoreographyController {
   const timelineRef = useRef<gsap.core.Timeline | null>(null)
@@ -99,8 +104,7 @@ export function useCncChoreography({
     const at = (value: number) => value * scale
     const timings = CNC_CHOREOGRAPHY.timings
     const doorStart = at(timings.establishingHold)
-    const cameraEntryStart =
-      doorStart + duration(timings.doorOpenDuration) + duration(timings.postDoorHold)
+    const cameraEntryStart = at(timings.cameraEntryDelay)
     const turret = CNC_CHOREOGRAPHY.turret
     const longitudinalOffsets = { [turret.longitudinalAxis]: turret.longitudinalOffset }
     const machiningTimings = CNC_MACHINING.timings
@@ -131,7 +135,8 @@ export function useCncChoreography({
     const exitToDumanPathDuration = reducedMotion
       ? 0
       : VISUAL_CALIBRATION.camera.paths.interiorToDuman.reduce(
-          (total, step) => total + step.duration * scale,
+          (total, step) =>
+            total + getEffectiveCameraDuration(step.duration * scale, cameraSpeedMultiplier),
           0,
         )
     const cuttingOffsets = {
@@ -302,14 +307,8 @@ export function useCncChoreography({
           reducedMotion,
           duration: Number(timeline.duration().toFixed(3)),
           doorDuration: timings.doorOpenDuration,
-          postDoorHold: timings.postDoorHold,
-          cameraEntryStart: Number(
-            (
-              timings.establishingHold +
-              timings.doorOpenDuration +
-              timings.postDoorHold
-            ).toFixed(3),
-          ),
+          cameraEntryStart: Number(cameraEntryStart.toFixed(3)),
+          cameraSpeedMultiplier,
           turretLongitudinalOffset: turret.longitudinalOffset,
           turretRadialOffset: turret.radialOffset,
           turretSequenceIndexAngleDeg: turret.sequenceIndexAngleDeg,
@@ -336,7 +335,15 @@ export function useCncChoreography({
       )
     }
     timeline.play(0)
-  }, [cameraRef, coolantRef, killMasterTimeline, logCheckpoint, motionRef, setSequenceState])
+  }, [
+    cameraRef,
+    cameraSpeedMultiplier,
+    coolantRef,
+    killMasterTimeline,
+    logCheckpoint,
+    motionRef,
+    setSequenceState,
+  ])
 
   const pauseSequence = useCallback(() => {
     if (stateRef.current !== 'playing' || !timelineRef.current) return
