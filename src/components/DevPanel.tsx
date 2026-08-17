@@ -7,12 +7,15 @@ import type {
   NodeCheckKey,
 } from '../types/cnc'
 import type { CameraWaypointName } from '../scene/CameraRig'
+import type { CncScrollDiagnostics } from '../hooks/useCncScrollDriver'
 
 interface DevPanelProps {
   inspection: CncInspection | null
   isChuckTesting: boolean
   sequenceState: CncSequenceState
   sequenceProgress: number
+  scrollDriverEnabled: boolean
+  scrollDiagnostics: CncScrollDiagnostics
   cameraSpeedMultiplier: number
   onCameraSpeedMultiplierChange: (multiplier: number) => void
   onPrintAudit: () => void
@@ -43,6 +46,7 @@ interface DevPanelProps {
   onResumeSequence: () => void
   onResetSequence: () => void
   onSequenceProgressChange: (progress: number) => void
+  onScrollDriverEnabledChange: (enabled: boolean) => void
 }
 
 const NODE_LABELS: Array<[NodeCheckKey, string]> = [
@@ -64,6 +68,8 @@ export function DevPanel({
   isChuckTesting,
   sequenceState,
   sequenceProgress,
+  scrollDriverEnabled,
+  scrollDiagnostics,
   cameraSpeedMultiplier,
   onCameraSpeedMultiplierChange,
   onPrintAudit,
@@ -94,6 +100,7 @@ export function DevPanel({
   onResumeSequence,
   onResetSequence,
   onSequenceProgressChange,
+  onScrollDriverEnabledChange,
 }: DevPanelProps) {
   const checks = inspection?.checks
   const diagnosticsDisabled = sequenceState === 'playing' || sequenceState === 'paused'
@@ -142,29 +149,60 @@ export function DevPanel({
               STATE: {sequenceState.toUpperCase()}
             </span>
           </div>
+          <button
+            type="button"
+            className={scrollDriverEnabled ? 'is-active' : ''}
+            aria-pressed={scrollDriverEnabled}
+            onClick={() => onScrollDriverEnabledChange(!scrollDriverEnabled)}
+          >
+            [ SCROLL DRIVER: {scrollDriverEnabled ? 'ON' : 'OFF'} ]
+          </button>
+          <dl className="scroll-diagnostics">
+            <div>
+              <dt>RAW SCROLL</dt>
+              <dd>{(scrollDiagnostics.raw * 100).toFixed(1)}%</dd>
+            </div>
+            <div>
+              <dt>TARGET</dt>
+              <dd>{(scrollDiagnostics.target * 100).toFixed(1)}%</dd>
+            </div>
+            <div>
+              <dt>SEQUENCE</dt>
+              <dd>{(sequenceProgress * 100).toFixed(1)}%</dd>
+            </div>
+          </dl>
           <div className="calibration-actions">
             <button
               type="button"
-              disabled={!inspection || sequenceState === 'playing' || sequenceState === 'paused'}
+              disabled={
+                scrollDriverEnabled ||
+                !inspection ||
+                sequenceState === 'playing' ||
+                sequenceState === 'paused'
+              }
               onClick={onPlaySequence}
             >
               [ PLAY SEQUENCE ]
             </button>
             <button
               type="button"
-              disabled={sequenceState !== 'playing'}
+              disabled={scrollDriverEnabled || sequenceState !== 'playing'}
               onClick={onPauseSequence}
             >
               [ PAUSE ]
             </button>
             <button
               type="button"
-              disabled={sequenceState !== 'paused'}
+              disabled={scrollDriverEnabled || sequenceState !== 'paused'}
               onClick={onResumeSequence}
             >
               [ RESUME ]
             </button>
-            <button type="button" disabled={!inspection} onClick={onResetSequence}>
+            <button
+              type="button"
+              disabled={scrollDriverEnabled || !inspection}
+              onClick={onResetSequence}
+            >
               [ RESET SEQUENCE ]
             </button>
           </div>
@@ -176,7 +214,7 @@ export function DevPanel({
               max="1"
               step="0.001"
               value={sequenceProgress}
-              disabled={!inspection}
+              disabled={scrollDriverEnabled || !inspection}
               aria-label="Sequence scrub progress"
               onInput={(event) => onSequenceProgressChange(Number(event.currentTarget.value))}
             />

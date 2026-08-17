@@ -61,6 +61,7 @@ interface CameraRigProps {
   interiorBounds: Box3 | null
   finishedWorkpieceBounds: Box3 | null
   cameraSpeedMultiplier: number
+  manualControlsLocked: boolean
 }
 
 interface CameraPreset {
@@ -119,6 +120,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     interiorBounds,
     finishedWorkpieceBounds,
     cameraSpeedMultiplier,
+    manualControlsLocked,
   },
   ref,
 ) {
@@ -128,6 +130,14 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
   const controlsRef = useRef<OrbitControlsImpl>(null)
   const transitionRef = useRef<gsap.core.Animation | null>(null)
   const cameraSpeedMultiplierRef = useRef(cameraSpeedMultiplier)
+  const manualControlsLockedRef = useRef(manualControlsLocked)
+
+  manualControlsLockedRef.current = manualControlsLocked
+
+  useEffect(() => {
+    if (controlsRef.current) controlsRef.current.enabled = !manualControlsLocked
+    invalidate()
+  }, [invalidate, manualControlsLocked])
 
   useEffect(() => {
     cameraSpeedMultiplierRef.current = cameraSpeedMultiplier
@@ -297,7 +307,9 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
 
   const setManualControlsEnabled = useCallback(
     (enabled: boolean) => {
-      if (controlsRef.current) controlsRef.current.enabled = enabled
+      if (controlsRef.current) {
+        controlsRef.current.enabled = enabled && !manualControlsLockedRef.current
+      }
       invalidate()
     },
     [invalidate],
@@ -327,7 +339,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
       controls?.target.copy(preset.target)
       configureClipping(preset)
       controls?.update()
-      if (releaseControls && controls) controls.enabled = true
+      if (releaseControls && controls) controls.enabled = !manualControlsLockedRef.current
       invalidate()
     },
     [camera, configureClipping, invalidate],
@@ -373,7 +385,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
         onComplete: () => {
           if (transitionRef.current === transition) transitionRef.current = null
           configureClipping(finalStep.preset)
-          if (releaseControls) controls.enabled = true
+          if (releaseControls) controls.enabled = !manualControlsLockedRef.current
           controls.update()
           invalidate()
           if (import.meta.env.DEV) {
@@ -470,7 +482,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
           camera.fov = finalStep.preset.fov
           if (transitionRef.current === transition) transitionRef.current = null
           configureClipping(finalStep.preset)
-          if (releaseControls) controls.enabled = true
+          if (releaseControls) controls.enabled = !manualControlsLockedRef.current
           controls.update()
           invalidate()
           if (import.meta.env.DEV) {
@@ -714,6 +726,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     <OrbitControls
       ref={controlsRef}
       makeDefault
+      enabled={!manualControlsLocked}
       enableDamping
       dampingFactor={0.075}
       minDistance={heroPreset ? heroPreset.radius * cameraCalibration.minimumOrbitDistanceScale : 1}

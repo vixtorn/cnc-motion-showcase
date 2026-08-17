@@ -1,11 +1,23 @@
 .app-shell {
   position: relative;
   width: 100%;
+  min-height: 100svh;
+  background: #d8d7d1;
+  color: #20231f;
+}
+
+.cinematic-scroll {
+  position: relative;
+  height: var(--cinematic-scroll-height, 800svh);
+}
+
+.cinematic-stage {
+  position: sticky;
+  top: 0;
+  width: 100%;
   height: 100svh;
   min-height: 36rem;
   overflow: hidden;
-  background: #d8d7d1;
-  color: #20231f;
 }
 
 .viewport {
@@ -17,7 +29,30 @@
   display: block;
   width: 100%;
   height: 100%;
-  touch-action: none;
+  touch-action: pan-y !important;
+}
+
+.post-cinematic-test {
+  display: grid;
+  min-height: 100svh;
+  place-content: center;
+  background: #20231f;
+  color: #d8d7d1;
+  font-family: var(--font-mono);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.post-cinematic-test span {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  opacity: 0.58;
+}
+
+.post-cinematic-test p {
+  margin: 0.7rem 0 0;
+  font-size: clamp(1rem, 2vw, 1.4rem);
+  letter-spacing: 0.08em;
 }
 
 .site-header {
@@ -309,6 +344,32 @@
   background: rgba(42, 45, 41, 0.045);
 }
 
+.scroll-diagnostics {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.52rem 0.6rem;
+  margin: 0;
+  border: 1px solid rgba(42, 45, 41, 0.12);
+}
+
+.scroll-diagnostics div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.scroll-diagnostics dt,
+.scroll-diagnostics dd {
+  margin: 0;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.scroll-diagnostics dd {
+  font-variant-numeric: tabular-nums;
+}
+
 .choreography-heading {
   display: flex;
   align-items: center;
@@ -449,7 +510,7 @@
 }
 
 @media (max-width: 700px) {
-  .app-shell {
+  .cinematic-stage {
     min-height: 32rem;
   }
 

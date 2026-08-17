@@ -66,6 +66,7 @@ interface CNCSceneProps {
   onSequenceStateChange: (state: CncSequenceState) => void
   onSequenceProgressChange: (progress: number) => void
   cameraSpeedMultiplier: number
+  scrollModeActive: boolean
 }
 
 export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCScene(
@@ -74,6 +75,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     onSequenceStateChange,
     onSequenceProgressChange,
     cameraSpeedMultiplier,
+    scrollModeActive,
   },
   ref,
 ) {
@@ -167,6 +169,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
   return (
     <Canvas
       className="scene-canvas"
+      style={{ touchAction: 'pan-y' }}
       dpr={VISUAL_CALIBRATION.renderer.dpr}
       frameloop="demand"
       camera={{ fov: VISUAL_CALIBRATION.camera.fov, near: 0.1, far: 10000 }}
@@ -193,6 +196,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
         interiorBounds={inspection?.interiorBounds ?? null}
         finishedWorkpieceBounds={inspection?.finishedWorkpieceBounds ?? null}
         cameraSpeedMultiplier={cameraSpeedMultiplier}
+        manualControlsLocked={scrollModeActive}
       />
       <CoolantEffect ref={coolantRef} />
       {import.meta.env.DEV ? (
