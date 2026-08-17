@@ -2,6 +2,7 @@ import { useCallback, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import type { CncAxis } from './animation/cncAnimationConfig'
 import { CNC_CHOREOGRAPHY } from './animation/cncChoreographyConfig'
+import { CinematicHero } from './components/CinematicHero'
 import { DevPanel } from './components/DevPanel'
 import { LoadingScreen } from './components/LoadingScreen'
 import { ModelErrorBoundary } from './components/ModelErrorBoundary'
@@ -84,16 +85,6 @@ function App() {
         aria-label="Scroll-driven CNC cinematic"
       >
         <div className="cinematic-stage">
-          <header className="site-header" aria-label="Project identity">
-            <div className="brand-mark" aria-hidden="true">
-              CM
-            </div>
-            <div>
-              <p className="eyebrow">Interactive engineering study · Phase 02D</p>
-              <h1>CNC Motion Showcase</h1>
-            </div>
-          </header>
-
           <section className="viewport" aria-label="Interactive CNC model">
             <ModelErrorBoundary>
               <CNCScene
@@ -106,20 +97,9 @@ function App() {
               />
             </ModelErrorBoundary>
             <LoadingScreen />
-
-            <div className="viewport-note" aria-hidden="true">
-              <span>{scrollDriverEnabled ? 'Scroll to run' : 'Drag to orbit'}</span>
-              <span>{scrollDriverEnabled ? 'Reverse to rewind' : 'Scroll to inspect'}</span>
-            </div>
           </section>
 
-          <footer className="site-footer">
-            <span>Universal turning center</span>
-            <span className="system-status">
-              <i aria-hidden="true" />
-              {inspection ? 'Scene online' : 'Initializing scene'}
-            </span>
-          </footer>
+          <CinematicHero progress={sequenceProgress} />
 
           {import.meta.env.DEV ? (
             <DevPanel
