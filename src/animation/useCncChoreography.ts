@@ -10,12 +10,14 @@ import { VISUAL_CALIBRATION } from './visualCalibrationConfig'
 import type { CameraRigHandle } from '../scene/CameraRig'
 import type { CNCModelHandle } from '../scene/CNCModel'
 import type { CoolantEffectHandle } from '../effects/CoolantEffect'
+import type { SparkEffectHandle } from '../effects/SparkEffect'
 import type { CncSequenceState } from '../types/cnc'
 
 interface UseCncChoreographyOptions {
   motionRef: RefObject<CNCModelHandle | null>
   cameraRef: RefObject<CameraRigHandle | null>
   coolantRef: RefObject<CoolantEffectHandle | null>
+  sparkRef: RefObject<SparkEffectHandle | null>
   cameraSpeedMultiplier: number
   onStateChange: (state: CncSequenceState) => void
 }
@@ -31,6 +33,7 @@ export function useCncChoreography({
   motionRef,
   cameraRef,
   coolantRef,
+  sparkRef,
   cameraSpeedMultiplier,
   onStateChange,
 }: UseCncChoreographyOptions): CncChoreographyController {
@@ -86,6 +89,7 @@ export function useCncChoreography({
     const motion = motionRef.current
     const camera = cameraRef.current
     const coolant = coolantRef.current
+    const sparks = sparkRef.current
     if (!motion || !camera || !coolant) return
 
     killMasterTimeline()
@@ -241,14 +245,24 @@ export function useCncChoreography({
       'single-machining-approach',
     )
     if (!reducedMotion) {
-      timeline.call(() => coolant.triggerHotChips(), [], cuttingContactStart)
+      timeline.call(
+        () => {
+          coolant.triggerHotChips()
+          sparks?.startSparks('sequence')
+        },
+        [],
+        cuttingContactStart,
+      )
       timeline.to(
         coolantLevel,
         {
           value: 1,
           duration: machiningTimings.coolantRampInDuration,
           ease: 'power2.inOut',
-          onStart: () => coolant.startCoolant(),
+          onStart: () => {
+            sparks?.stopSparks('sequence', true)
+            coolant.startCoolant()
+          },
           onUpdate: () => coolant.setCoolantIntensity(coolantLevel.value),
         },
         coolantStart,
@@ -417,6 +431,7 @@ export function useCncChoreography({
     killMasterTimeline,
     logCheckpoint,
     motionRef,
+    sparkRef,
     setSequenceState,
   ])
 

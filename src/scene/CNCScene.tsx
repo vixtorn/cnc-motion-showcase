@@ -77,6 +77,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     motionRef: modelRef,
     cameraRef: cameraRigRef,
     coolantRef,
+    sparkRef,
     cameraSpeedMultiplier,
     onStateChange: onSequenceStateChange,
   })
@@ -186,6 +187,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
           ref={sparkRef}
           rawWorkpiece={inspection?.nodes.workpiece ?? null}
           finishedWorkpiece={inspection?.nodes.finishedWorkpiece ?? null}
+          tailstockTip={inspection?.nodes.tailstockTip ?? null}
         />
       ) : null}
     </Canvas>
