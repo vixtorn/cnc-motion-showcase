@@ -15,6 +15,7 @@ import type {
   CalibrationDirection,
   CncInspection,
   CncSequenceState,
+  CncSequenceTelemetry,
 } from '../types/cnc'
 import {
   CameraRig,
@@ -65,6 +66,7 @@ interface CNCSceneProps {
   onInspection: (inspection: CncInspection) => void
   onSequenceStateChange: (state: CncSequenceState) => void
   onSequenceProgressChange: (progress: number) => void
+  onSequenceTelemetryChange: (telemetry: CncSequenceTelemetry) => void
   cameraSpeedMultiplier: number
   scrollModeActive: boolean
 }
@@ -74,6 +76,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     onInspection,
     onSequenceStateChange,
     onSequenceProgressChange,
+    onSequenceTelemetryChange,
     cameraSpeedMultiplier,
     scrollModeActive,
   },
@@ -92,6 +95,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     cameraSpeedMultiplier,
     onStateChange: onSequenceStateChange,
     onProgressChange: onSequenceProgressChange,
+    onTelemetryChange: onSequenceTelemetryChange,
   })
 
   useImperativeHandle(

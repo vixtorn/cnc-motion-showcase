@@ -588,6 +588,103 @@
   opacity: 0.38;
 }
 
+/* Phase 3D: progress-derived chapters and canonical simulation telemetry. */
+.cinematic-narrative {
+  position: absolute;
+  z-index: 12;
+  inset: 0;
+  color: #f4f0e9;
+  pointer-events: none;
+}
+
+.cinematic-chapters {
+  position: absolute;
+  bottom: clamp(2.5rem, 7vh, 5.5rem);
+  left: clamp(1.5rem, 4vw, 4.5rem);
+  width: min(28rem, 44vw);
+}
+
+.cinematic-chapter {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: 1rem;
+  align-items: start;
+  width: 100%;
+  opacity: var(--chapter-opacity);
+  will-change: opacity;
+}
+
+.chapter-index {
+  padding-top: 0.2rem;
+  border-top: 1px solid rgba(244, 240, 233, 0.48);
+  color: rgba(244, 240, 233, 0.66);
+  font: 500 0.62rem/1.25 var(--font-mono);
+  letter-spacing: 0.12em;
+}
+
+.chapter-copy {
+  padding-top: 0.1rem;
+}
+
+.chapter-copy p,
+.chapter-copy h2 {
+  margin: 0;
+}
+
+.chapter-copy p {
+  margin-bottom: 0.4rem;
+  color: rgba(244, 240, 233, 0.6);
+  font: 500 clamp(0.58rem, 0.7vw, 0.69rem)/1.25 var(--font-mono);
+  letter-spacing: 0.18em;
+}
+
+.chapter-copy h2 {
+  font-size: clamp(1.15rem, 2.1vw, 2rem);
+  font-weight: 460;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+}
+
+.cinematic-telemetry {
+  position: absolute;
+  right: clamp(1.5rem, 4vw, 4.5rem);
+  bottom: clamp(2.5rem, 7vh, 5.5rem);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(8.5rem, 1fr));
+  gap: 0.75rem 1.4rem;
+  width: min(22rem, 38vw);
+  opacity: var(--telemetry-opacity);
+  will-change: opacity;
+}
+
+.telemetry-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  padding-top: 0.36rem;
+  border-top: 1px solid rgba(244, 240, 233, 0.18);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.telemetry-item span {
+  color: rgba(244, 240, 233, 0.47);
+  font-size: 0.54rem;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+}
+
+.telemetry-item strong {
+  color: rgba(244, 240, 233, 0.86);
+  font-size: 0.69rem;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: 0.035em;
+}
+
 @media (max-width: 700px) {
   .cinematic-stage {
     min-height: 32rem;
@@ -635,6 +732,34 @@
   .loading-readout {
     margin-top: 3.5rem;
   }
+
+  .cinematic-chapters {
+    bottom: 5.6rem;
+    left: 1.15rem;
+    width: calc(100vw - 2.3rem);
+  }
+
+  .cinematic-chapter {
+    grid-template-columns: 1.6rem 1fr;
+    gap: 0.7rem;
+  }
+
+  .chapter-copy h2 {
+    font-size: clamp(1rem, 5vw, 1.35rem);
+  }
+
+  .cinematic-telemetry {
+    right: 1.15rem;
+    bottom: 1.4rem;
+    left: 1.15rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+    width: auto;
+  }
+
+  .telemetry-item--secondary {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -649,4 +774,5 @@
   .dev-panel button {
     transition-duration: 0.01ms;
   }
+
 }

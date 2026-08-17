@@ -3,6 +3,7 @@ import './App.css'
 import type { CncAxis } from './animation/cncAnimationConfig'
 import { CNC_CHOREOGRAPHY } from './animation/cncChoreographyConfig'
 import { CinematicHero } from './components/CinematicHero'
+import { CinematicNarrative } from './components/CinematicNarrative'
 import { DevPanel } from './components/DevPanel'
 import { LoadingScreen } from './components/LoadingScreen'
 import { ModelErrorBoundary } from './components/ModelErrorBoundary'
@@ -17,6 +18,7 @@ import type {
   CncInspection,
   CncSequenceState,
 } from './types/cnc'
+import { INITIAL_CNC_SEQUENCE_TELEMETRY } from './types/cnc'
 
 function App() {
   const sceneRef = useRef<CNCSceneHandle>(null)
@@ -25,6 +27,9 @@ function App() {
   const [isChuckTesting, setIsChuckTesting] = useState(false)
   const [sequenceState, setSequenceState] = useState<CncSequenceState>('idle')
   const [sequenceProgress, setSequenceProgress] = useState(0)
+  const [sequenceTelemetry, setSequenceTelemetry] = useState(
+    INITIAL_CNC_SEQUENCE_TELEMETRY,
+  )
   const [scrollDriverEnabled, setScrollDriverEnabled] = useState(true)
   const [scrollDiagnostics, setScrollDiagnostics] = useState<CncScrollDiagnostics>({
     raw: 0,
@@ -92,6 +97,7 @@ function App() {
                 onInspection={handleInspection}
                 onSequenceStateChange={handleSequenceStateChange}
                 onSequenceProgressChange={setSequenceProgress}
+                onSequenceTelemetryChange={setSequenceTelemetry}
                 cameraSpeedMultiplier={cameraSpeedMultiplier}
                 scrollModeActive={scrollDriverEnabled}
               />
@@ -100,6 +106,10 @@ function App() {
           </section>
 
           <CinematicHero progress={sequenceProgress} />
+          <CinematicNarrative
+            progress={sequenceProgress}
+            telemetry={sequenceTelemetry}
+          />
 
           {import.meta.env.DEV ? (
             <DevPanel

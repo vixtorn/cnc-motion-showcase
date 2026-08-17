@@ -11,7 +11,7 @@ import type { CameraRigHandle } from '../scene/CameraRig'
 import type { CNCModelHandle } from '../scene/CNCModel'
 import type { CoolantEffectHandle } from '../effects/CoolantEffect'
 import type { SparkEffectHandle } from '../effects/SparkEffect'
-import type { CncSequenceState } from '../types/cnc'
+import type { CncSequenceState, CncSequenceTelemetry } from '../types/cnc'
 
 interface UseCncChoreographyOptions {
   motionRef: RefObject<CNCModelHandle | null>
@@ -21,7 +21,11 @@ interface UseCncChoreographyOptions {
   cameraSpeedMultiplier: number
   onStateChange: (state: CncSequenceState) => void
   onProgressChange: (progress: number) => void
+  onTelemetryChange: (telemetry: CncSequenceTelemetry) => void
 }
+
+const TELEMETRY_PUBLISH_INTERVAL_MS = 1000 / 15
+const TELEMETRY_SEEK_THRESHOLD_SECONDS = 0.25
 
 export interface CncChoreographyController {
   playSequence: () => void
@@ -96,10 +100,16 @@ export function useCncChoreography({
   cameraSpeedMultiplier,
   onStateChange,
   onProgressChange,
+  onTelemetryChange,
 }: UseCncChoreographyOptions): CncChoreographyController {
   const timelineRef = useRef<gsap.core.Timeline | null>(null)
   const timingRef = useRef<SequenceTiming | null>(null)
   const stateRef = useRef<CncSequenceState>('idle')
+  const telemetryPublishRef = useRef({
+    wallTime: Number.NEGATIVE_INFINITY,
+    sequenceTime: Number.NaN,
+    signature: '',
+  })
 
   const setSequenceState = useCallback(
     (state: CncSequenceState) => {
@@ -289,6 +299,123 @@ export function useCncChoreography({
             timing.cuttingContactStart + CNC_MACHINING.coolant.hotChips.maximumLifetime,
       )
 
+      const longitudinalTarget = CNC_CHOREOGRAPHY.turret.longitudinalOffset
+      const approachTarget = CNC_MACHINING.turret.machiningOffsets.x ?? 0
+      let turretOffsetZ = 0
+      if (time >= timing.turretLongitudinalStart) {
+        turretOffsetZ = longitudinalTarget
+      }
+      if (
+        time >= timing.turretLongitudinalStart &&
+        time < timing.turretLongitudinalEnd
+      ) {
+        turretOffsetZ =
+          longitudinalTarget *
+          power2InOut(
+            rangeProgress(
+              time,
+              timing.turretLongitudinalStart,
+              timing.turretLongitudinalEnd,
+            ),
+          )
+      }
+      if (time >= timing.turretHomeReturnStageTwoStart) {
+        turretOffsetZ =
+          longitudinalTarget *
+          (1 -
+            power2InOut(
+              rangeProgress(
+                time,
+                timing.turretHomeReturnStageTwoStart,
+                timing.turretHomeReturnEnd,
+              ),
+            ))
+      }
+
+      let turretOffsetX = 0
+      if (time >= timing.singleApproachStart) turretOffsetX = approachTarget
+      if (
+        time >= timing.singleApproachStart &&
+        time < timing.cuttingContactStart
+      ) {
+        turretOffsetX =
+          approachTarget *
+          power2InOut(
+            rangeProgress(
+              time,
+              timing.singleApproachStart,
+              timing.cuttingContactStart,
+            ),
+          )
+      }
+      if (time >= timing.turretHomeReturnStart) {
+        turretOffsetX =
+          approachTarget *
+          (1 -
+            power2InOut(
+              rangeProgress(
+                time,
+                timing.turretHomeReturnStart,
+                timing.turretHomeReturnStageTwoStart,
+              ),
+            ))
+      }
+
+      let turretIndexDegrees = 0
+      if (time >= timing.turretIndexStart) {
+        turretIndexDegrees = CNC_CHOREOGRAPHY.turret.sequenceIndexAngleDeg
+      }
+      if (time >= timing.turretIndexStart && time < timing.turretIndexEnd) {
+        turretIndexDegrees =
+          CNC_CHOREOGRAPHY.turret.sequenceIndexAngleDeg *
+          power2InOut(
+            rangeProgress(time, timing.turretIndexStart, timing.turretIndexEnd),
+          )
+      }
+
+      const telemetryPublish = telemetryPublishRef.current
+      const now = performance.now()
+      const sequenceJump =
+        Number.isFinite(telemetryPublish.sequenceTime) &&
+        Math.abs(time - telemetryPublish.sequenceTime) >=
+          TELEMETRY_SEEK_THRESHOLD_SECONDS
+      telemetryPublish.sequenceTime = time
+
+      if (
+        sequenceJump ||
+        time <= 0 ||
+        time >= timing.totalDuration ||
+        now - telemetryPublish.wallTime >= TELEMETRY_PUBLISH_INTERVAL_MS
+      ) {
+        const telemetry: CncSequenceTelemetry = {
+          spindleVisualRpm: Number(
+            ((chuckSpeed * 60) / (Math.PI * 2)).toFixed(1),
+          ),
+          turretOffsetX: Number(turretOffsetX.toFixed(2)),
+          turretOffsetZ: Number(turretOffsetZ.toFixed(2)),
+          turretIndexDegrees: Number(turretIndexDegrees.toFixed(1)),
+          coolantActive,
+          coolantIntensity: Number(coolantIntensity.toFixed(2)),
+          workpieceState:
+            time >= timing.workpieceSwap ? 'finished' : 'raw',
+        }
+        const signature = [
+          telemetry.spindleVisualRpm,
+          telemetry.turretOffsetX,
+          telemetry.turretOffsetZ,
+          telemetry.turretIndexDegrees,
+          Number(telemetry.coolantActive),
+          telemetry.coolantIntensity,
+          telemetry.workpieceState,
+        ].join('|')
+
+        if (signature !== telemetryPublish.signature) {
+          telemetryPublish.signature = signature
+          telemetryPublish.wallTime = now
+          onTelemetryChange(telemetry)
+        }
+      }
+
       if (sparks) {
         const sparkSnapshot = sparks.getSparkSnapshot() as {
           active?: boolean
@@ -309,7 +436,7 @@ export function useCncChoreography({
         }
       }
     },
-    [cameraRef, coolantRef, motionRef, sparkRef],
+    [cameraRef, coolantRef, motionRef, onTelemetryChange, sparkRef],
   )
 
   const buildMasterTimeline = useCallback(() => {

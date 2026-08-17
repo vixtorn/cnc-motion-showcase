@@ -4,6 +4,28 @@ export type CalibrationDirection = -1 | 1
 
 export type CncSequenceState = 'idle' | 'playing' | 'paused' | 'complete'
 
+export type CncWorkpieceState = 'raw' | 'finished'
+
+export interface CncSequenceTelemetry {
+  spindleVisualRpm: number
+  turretOffsetX: number
+  turretOffsetZ: number
+  turretIndexDegrees: number
+  coolantActive: boolean
+  coolantIntensity: number
+  workpieceState: CncWorkpieceState
+}
+
+export const INITIAL_CNC_SEQUENCE_TELEMETRY: CncSequenceTelemetry = {
+  spindleVisualRpm: 0,
+  turretOffsetX: 0,
+  turretOffsetZ: 0,
+  turretIndexDegrees: 0,
+  coolantActive: false,
+  coolantIntensity: 0,
+  workpieceState: 'raw',
+}
+
 export interface HomeTransform {
   readonly position: Vector3
   readonly rotation: Euler
