@@ -25,6 +25,9 @@ interface DevPanelProps {
   onStopCoolant: () => void
   onTestWorkpieceTransition: () => void
   onResetMachining: () => void
+  onStartSparks: () => void
+  onStopSparks: () => void
+  onResetSparks: () => void
   onToggleChuck: () => void
   onSetTailstockContact: (contact: boolean) => void
   onResetTailstock: () => void
@@ -71,6 +74,9 @@ export function DevPanel({
   onStopCoolant,
   onTestWorkpieceTransition,
   onResetMachining,
+  onStartSparks,
+  onStopSparks,
+  onResetSparks,
   onToggleChuck,
   onSetTailstockContact,
   onResetTailstock,
@@ -186,6 +192,15 @@ export function DevPanel({
             </button>
             <button type="button" disabled={!inspection} onClick={onResetMachining}>
               [ RESET MACHINING ]
+            </button>
+            <button type="button" disabled={!checks?.workpiece} onClick={onStartSparks}>
+              [ START SPARK TEST ]
+            </button>
+            <button type="button" disabled={!checks?.workpiece} onClick={onStopSparks}>
+              [ STOP SPARK TEST ]
+            </button>
+            <button type="button" disabled={!checks?.workpiece} onClick={onResetSparks}>
+              [ RESET SPARK TEST ]
             </button>
           </div>
         </section>

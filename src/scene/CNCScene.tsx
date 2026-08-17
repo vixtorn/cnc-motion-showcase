@@ -24,6 +24,7 @@ import {
 import { CNCModel, type CNCModelHandle } from './CNCModel'
 import { SceneLighting } from './SceneLighting'
 import { CoolantEffect, type CoolantEffectHandle } from '../effects/CoolantEffect'
+import { SparkEffect, type SparkEffectHandle } from '../effects/SparkEffect'
 
 export interface CNCSceneHandle {
   resetCamera: () => void
@@ -37,6 +38,9 @@ export interface CNCSceneHandle {
   stopCoolant: () => void
   testWorkpieceTransition: () => void
   resetMachining: () => void
+  startSparks: () => void
+  stopSparks: () => void
+  resetSparks: () => void
   startChuckTest: () => void
   stopChuckTest: () => void
   setTailstockContact: (contact: boolean) => void
@@ -67,6 +71,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
   const cameraRigRef = useRef<CameraRigHandle>(null)
   const modelRef = useRef<CNCModelHandle>(null)
   const coolantRef = useRef<CoolantEffectHandle>(null)
+  const sparkRef = useRef<SparkEffectHandle>(null)
   const [inspection, setInspection] = useState<CncInspection | null>(null)
   const choreography = useCncChoreography({
     motionRef: modelRef,
@@ -87,8 +92,10 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
       testDumanCamera: () => cameraRigRef.current?.testDumanCamera(),
       testInteriorToDumanPath: () =>
         cameraRigRef.current?.playPath('interiorToDuman'),
-      testFinishedPartCamera: () =>
-        cameraRigRef.current?.goToWaypoint('finishedInspection', { duration: 0 }),
+      testFinishedPartCamera: () => {
+        modelRef.current?.revealFinishedImmediate()
+        cameraRigRef.current?.playPath('finishedInspection')
+      },
       startCoolant: () => {
         coolantRef.current?.startCoolant()
         coolantRef.current?.setCoolantIntensity(1)
@@ -97,6 +104,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
       testWorkpieceTransition: () => modelRef.current?.revealFinishedImmediate(),
       resetMachining: () => {
         coolantRef.current?.resetCoolant()
+        sparkRef.current?.resetSparks()
         const model = modelRef.current
         model?.restoreAllImmediate()
         if (import.meta.env.DEV) {
@@ -105,6 +113,9 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
           )
         }
       },
+      startSparks: () => sparkRef.current?.startSparks(),
+      stopSparks: () => sparkRef.current?.stopSparks(),
+      resetSparks: () => sparkRef.current?.resetSparks(),
       startChuckTest: () => modelRef.current?.startChuck({ rampDuration: 0.55 }),
       stopChuckTest: () => modelRef.current?.stopChuck(true),
       setTailstockContact: (contact) => modelRef.current?.setTailstockContact(contact),
@@ -117,10 +128,16 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
       setDoorOpen: (open) => modelRef.current?.setDoorOpen(open),
       resetDoor: () => modelRef.current?.resetDoor(),
       resetAllAssemblies: () => modelRef.current?.resetAllAssemblies(),
-      playSequence: choreography.playSequence,
+      playSequence: () => {
+        sparkRef.current?.resetSparks()
+        choreography.playSequence()
+      },
       pauseSequence: choreography.pauseSequence,
       resumeSequence: choreography.resumeSequence,
-      resetSequence: choreography.resetSequence,
+      resetSequence: () => {
+        sparkRef.current?.resetSparks()
+        choreography.resetSequence()
+      },
     }),
     [choreography],
   )
@@ -164,6 +181,13 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
         cameraSpeedMultiplier={cameraSpeedMultiplier}
       />
       <CoolantEffect ref={coolantRef} />
+      {import.meta.env.DEV ? (
+        <SparkEffect
+          ref={sparkRef}
+          rawWorkpiece={inspection?.nodes.workpiece ?? null}
+          finishedWorkpiece={inspection?.nodes.finishedWorkpiece ?? null}
+        />
+      ) : null}
     </Canvas>
   )
 })

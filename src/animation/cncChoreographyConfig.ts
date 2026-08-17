@@ -6,7 +6,8 @@ export const CNC_CHOREOGRAPHY = {
     doorOpenDuration: 1.7,
     cameraEntryDelay: 1,
     chuckStartTime: 5.35,
-    chuckRampDuration: 0.85,
+    chuckSlowSpinDuration: 0.5,
+    chuckAccelerationDuration: 1,
     tailstockStartTime: 6.25,
     tailstockDuration: 1.3,
     turretLongitudinalStartTime: 7.6,
@@ -18,8 +19,6 @@ export const CNC_CHOREOGRAPHY = {
   turret: {
     longitudinalAxis: 'z' as CncAxis,
     longitudinalOffset: 6,
-    radialAxis: 'x' as CncAxis,
-    radialOffset: 5,
     sequenceIndexAngleDeg: 30,
     sequenceIndexRadians: Math.PI / 6,
   },
@@ -32,6 +31,9 @@ export const CNC_CHOREOGRAPHY = {
     minimumMultiplier: 0.4,
     maximumMultiplier: 1.2,
     step: 0.05,
+  },
+  chuckStartup: {
+    slowSpinRpmVisualSpeed: 2.5,
   },
 } as const
 

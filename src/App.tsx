@@ -102,6 +102,9 @@ function App() {
           onStopCoolant={() => sceneRef.current?.stopCoolant()}
           onTestWorkpieceTransition={() => sceneRef.current?.testWorkpieceTransition()}
           onResetMachining={() => sceneRef.current?.resetMachining()}
+          onStartSparks={() => sceneRef.current?.startSparks()}
+          onStopSparks={() => sceneRef.current?.stopSparks()}
+          onResetSparks={() => sceneRef.current?.resetSparks()}
           onToggleChuck={() => {
             if (isChuckTesting) {
               stopChuckDiagnostic()
