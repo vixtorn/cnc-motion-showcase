@@ -23,10 +23,14 @@ export const VISUAL_CALIBRATION = {
     interiorTargetOffset: [0, -2.8, 0] as [number, number, number],
     interiorFitScale: 0.295,
     interiorFov: 58,
-    finishedInspectionDirection: [1, 0.45, 0.6] as [number, number, number],
-    finishedInspectionTargetOffset: [0, 1.5, 0] as [number, number, number],
-    finishedInspectionDistance: 44,
-    finishedInspectionFov: 44,
+    finishedInspectionStartDirection: [1, 0.42, 0.65] as [number, number, number],
+    finishedInspectionStartTargetOffset: [0, 1.5, 3] as [number, number, number],
+    finishedInspectionStartDistance: 60,
+    finishedInspectionStartFov: 50,
+    finishedInspectionDirection: [1, 0.52, -0.58] as [number, number, number],
+    finishedInspectionTargetOffset: [0, 2, -7] as [number, number, number],
+    finishedInspectionDistance: 50,
+    finishedInspectionFov: 45,
     waypoints: {
       doorApproach: {
         position: [108, 138, 60] as [number, number, number],
@@ -42,6 +46,11 @@ export const VISUAL_CALIBRATION = {
         position: [62, 136, 49] as [number, number, number],
         target: [3, 118, 67] as [number, number, number],
         fov: 50,
+      },
+      finishedRetreat: {
+        position: [45, 128, 48] as [number, number, number],
+        target: [0, 112, 68] as [number, number, number],
+        fov: 48,
       },
       exitClearance: {
         position: [420, 170, 49] as [number, number, number],
@@ -61,6 +70,17 @@ export const VISUAL_CALIBRATION = {
         { waypoint: 'interior', duration: 1 },
       ],
       interiorToDuman: [
+        { waypoint: 'exitThreshold', duration: 1.05 },
+        { waypoint: 'exitClearance', duration: 1.15 },
+        { waypoint: 'dumanApproach', duration: 1.1 },
+        { waypoint: 'dumanFinal', duration: 1.4 },
+      ],
+      finishedInspection: [
+        { waypoint: 'finishedInspectionStart', duration: 0.75 },
+        { waypoint: 'finishedInspection', duration: 1.65 },
+      ],
+      finishedToDuman: [
+        { waypoint: 'finishedRetreat', duration: 0.8 },
         { waypoint: 'exitThreshold', duration: 1.05 },
         { waypoint: 'exitClearance', duration: 1.15 },
         { waypoint: 'dumanApproach', duration: 1.1 },

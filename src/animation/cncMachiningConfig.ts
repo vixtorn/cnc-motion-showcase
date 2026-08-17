@@ -11,25 +11,38 @@ export const CNC_MACHINING = {
     occlusionRampOutDuration: 0.55,
     coolantRampOutAfterSwap: 0.95,
     coolantRampOutDuration: 0.7,
-    turretRetractAfterSwap: 1.25,
-    turretRetractDuration: 0.8,
     spindleDecelerationAfterSwap: 1.15,
     spindleDecelerationDuration: 1.1,
+    postMachiningRetractionHold: 0.5,
     interiorResultHoldDuration: 1.1,
+    finishedInspectionHoldDuration: 1.25,
   },
   turret: {
-    contactAdditionalOffsets: {
-      x: 2.25,
-      z: 0.5,
+    machiningOffsets: {
+      x: 4,
+      z: 2.5,
     } as Partial<Record<CncAxis, number>>,
-    inspectionOffsets: {
-      x: 3,
-      z: 5.5,
-    } as Partial<Record<CncAxis, number>>,
+    homeReturnDuration: 1.1,
   },
   chuck: {
     machiningRpmVisualSpeed: 60 / 4.2,
     inspectionRpmVisualSpeed: 4.5,
+  },
+  sparks: {
+    particleCount: 28,
+    spawnRate: 24,
+    minimumLifetime: 0.12,
+    maximumLifetime: 0.3,
+    minimumSpeed: 12,
+    maximumSpeed: 26,
+    gravity: [0, -25, 0] as [number, number, number],
+    color: '#f4a64b',
+    minimumSize: 0.38,
+    maximumSize: 0.62,
+    contact: {
+      axialFractionFromTailstockEnd: 0.08,
+      topClearanceScale: 0.55,
+    },
   },
   coolant: {
     emitterPosition: [-7.5, 105, 70] as [number, number, number],

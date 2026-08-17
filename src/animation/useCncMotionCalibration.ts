@@ -24,6 +24,9 @@ interface UseCncMotionCalibrationOptions {
 interface ChuckStartOptions {
   rampDuration?: number
   rpmVisualSpeed?: number
+  slowSpinRpmVisualSpeed?: number
+  slowSpinDuration?: number
+  accelerationDuration?: number
 }
 
 type LocalOffsets = Partial<Record<CncAxis, number>>
@@ -154,7 +157,7 @@ export function useCncMotionCalibration({
   homeTransforms,
   invalidate,
 }: UseCncMotionCalibrationOptions): CncMotionController {
-  const chuckSpeedTweenRef = useRef<gsap.core.Tween | null>(null)
+  const chuckSpeedTweenRef = useRef<gsap.core.Animation | null>(null)
   const chuckTickerRef = useRef<((time: number, deltaTime: number) => void) | null>(null)
   const chuckStateRef = useRef({ angle: 0, speed: 0, paused: false })
 
@@ -195,6 +198,10 @@ export function useCncMotionCalibration({
       const rpmVisualSpeed =
         options.rpmVisualSpeed ?? CNC_MACHINING.chuck.machiningRpmVisualSpeed
       const targetSpeed = (rpmVisualSpeed * Math.PI * 2) / 60
+      const slowSpinDuration = options.slowSpinDuration ?? 0
+      const accelerationDuration = options.accelerationDuration ?? rampDuration
+      const slowSpinRpmVisualSpeed = options.slowSpinRpmVisualSpeed ?? 0
+      const slowSpinSpeed = (slowSpinRpmVisualSpeed * Math.PI * 2) / 60
 
       const ticker = (_time: number, deltaTime: number) => {
         if (state.paused || state.speed === 0) return
@@ -207,7 +214,41 @@ export function useCncMotionCalibration({
       chuckTickerRef.current = ticker
       gsap.ticker.add(ticker)
 
-      if (rampDuration <= 0) {
+      if (slowSpinDuration > 0 && slowSpinRpmVisualSpeed > 0) {
+        const startup = gsap.timeline()
+        startup
+          .to(state, {
+            speed: slowSpinSpeed,
+            duration: slowSpinDuration,
+            ease: 'power2.out',
+            onComplete: () => {
+              if (import.meta.env.DEV) {
+                console.info(
+                  `[CNC] Chuck startup slow-spin endpoint ${JSON.stringify({
+                    rpmVisualSpeed: slowSpinRpmVisualSpeed,
+                    angularVelocity: Number(state.speed.toFixed(6)),
+                  })}`,
+                )
+              }
+            },
+          })
+          .to(state, {
+            speed: targetSpeed,
+            duration: accelerationDuration,
+            ease: 'power2.inOut',
+            onComplete: () => {
+              if (import.meta.env.DEV) {
+                console.info(
+                  `[CNC] Chuck startup machining-speed endpoint ${JSON.stringify({
+                    rpmVisualSpeed,
+                    angularVelocity: Number(state.speed.toFixed(6)),
+                  })}`,
+                )
+              }
+            },
+          })
+        chuckSpeedTweenRef.current = startup
+      } else if (rampDuration <= 0) {
         state.speed = targetSpeed
       } else {
         chuckSpeedTweenRef.current = gsap.to(state, {
@@ -222,6 +263,9 @@ export function useCncMotionCalibration({
           `[CNC] Chuck started ${JSON.stringify({
             axis: CHUCK_ROTATION_AXIS.toUpperCase(),
             rampDuration,
+            slowSpinDuration,
+            slowSpinRpmVisualSpeed,
+            accelerationDuration,
             rpmVisualSpeed,
           })}`,
         )

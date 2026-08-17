@@ -2,9 +2,12 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { OrbitControls } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
 import gsap from 'gsap'
-import { MathUtils, PerspectiveCamera, Vector3, type Box3 } from 'three'
+import { CatmullRomCurve3, MathUtils, PerspectiveCamera, Vector3, type Box3 } from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
-import { getEffectiveCameraDuration } from '../animation/cncChoreographyConfig'
+import {
+  CNC_CHOREOGRAPHY,
+  getEffectiveCameraDuration,
+} from '../animation/cncChoreographyConfig'
 import { prefersReducedMotion } from '../animation/motionPreferences'
 import { VISUAL_CALIBRATION } from '../animation/visualCalibrationConfig'
 
@@ -13,13 +16,19 @@ export type CameraWaypointName =
   | 'doorApproach'
   | 'doorThreshold'
   | 'interior'
+  | 'finishedInspectionStart'
   | 'finishedInspection'
+  | 'finishedRetreat'
   | 'exitThreshold'
   | 'exitClearance'
   | 'dumanApproach'
   | 'dumanFinal'
 
-export type CameraPathName = 'heroToInterior' | 'interiorToDuman'
+export type CameraPathName =
+  | 'heroToInterior'
+  | 'interiorToDuman'
+  | 'finishedInspection'
+  | 'finishedToDuman'
 
 export interface CameraTransitionOptions {
   duration?: number
@@ -78,6 +87,12 @@ const FINISHED_INSPECTION_DIRECTION = new Vector3(
 const FINISHED_INSPECTION_TARGET_OFFSET = new Vector3(
   ...cameraCalibration.finishedInspectionTargetOffset,
 )
+const FINISHED_INSPECTION_START_DIRECTION = new Vector3(
+  ...cameraCalibration.finishedInspectionStartDirection,
+).normalize()
+const FINISHED_INSPECTION_START_TARGET_OFFSET = new Vector3(
+  ...cameraCalibration.finishedInspectionStartTargetOffset,
+)
 
 const presetDiagnostic = (preset: CameraPreset) => ({
   position: preset.position.toArray().map((value) => Number(value.toFixed(4))),
@@ -100,7 +115,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
   const size = useThree((state) => state.size)
   const invalidate = useThree((state) => state.invalidate)
   const controlsRef = useRef<OrbitControlsImpl>(null)
-  const transitionRef = useRef<gsap.core.Timeline | null>(null)
+  const transitionRef = useRef<gsap.core.Animation | null>(null)
   const cameraSpeedMultiplierRef = useRef(cameraSpeedMultiplier)
 
   useEffect(() => {
@@ -194,6 +209,22 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     }
   }, [finishedWorkpieceBounds, heroPreset])
 
+  const finishedInspectionStartPreset = useMemo<CameraPreset | null>(() => {
+    if (!finishedWorkpieceBounds || !heroPreset) return null
+
+    const target = finishedWorkpieceBounds
+      .getCenter(new Vector3())
+      .add(FINISHED_INSPECTION_START_TARGET_OFFSET)
+    const distance = cameraCalibration.finishedInspectionStartDistance
+    return {
+      target,
+      position: target.clone().addScaledVector(FINISHED_INSPECTION_START_DIRECTION, distance),
+      distance,
+      radius: heroPreset.radius,
+      fov: cameraCalibration.finishedInspectionStartFov,
+    }
+  }, [finishedWorkpieceBounds, heroPreset])
+
   const calibratedWaypointPresets = useMemo(() => {
     if (!heroPreset) return null
 
@@ -215,6 +246,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
       doorApproach: createPreset(cameraCalibration.waypoints.doorApproach),
       doorThreshold: createPreset(cameraCalibration.waypoints.doorThreshold),
       exitThreshold: createPreset(cameraCalibration.waypoints.exitThreshold),
+      finishedRetreat: createPreset(cameraCalibration.waypoints.finishedRetreat),
       exitClearance: createPreset(cameraCalibration.waypoints.exitClearance),
       dumanApproach: createPreset(cameraCalibration.waypoints.dumanApproach),
     }
@@ -224,6 +256,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     (name: CameraWaypointName): CameraPreset | null => {
       if (name === 'hero') return heroPreset
       if (name === 'interior') return interiorPreset
+      if (name === 'finishedInspectionStart') return finishedInspectionStartPreset
       if (name === 'finishedInspection') return finishedInspectionPreset
       if (name === 'dumanFinal') return dumanPreset
       return calibratedWaypointPresets?.[name] ?? null
@@ -232,6 +265,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
       calibratedWaypointPresets,
       dumanPreset,
       finishedInspectionPreset,
+      finishedInspectionStartPreset,
       heroPreset,
       interiorPreset,
     ],
@@ -316,7 +350,10 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
 
       configureClipping(steps[0].preset)
       const transition = gsap.timeline({
-        defaults: { ease: 'power3.inOut', overwrite: true },
+        defaults: {
+          ease: CNC_CHOREOGRAPHY.productionMotion.cameraEase,
+          overwrite: true,
+        },
         onUpdate: () => {
           camera.updateProjectionMatrix()
           controls.update()
@@ -371,6 +408,86 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     [applyImmediate, camera, cancelTransition, configureClipping, invalidate],
   )
 
+  const runContinuousTransition = useCallback(
+    (
+      steps: CameraTransitionStep[],
+      label: string,
+      options: Omit<CameraTransitionOptions, 'duration'> = {},
+    ) => {
+      if (!(camera instanceof PerspectiveCamera) || steps.length === 0) return
+      const controls = controlsRef.current
+      const finalStep = steps.at(-1)
+      if (!controls || !finalStep) return
+      const releaseControls = options.releaseControls ?? true
+      const totalDuration = steps.reduce((total, step) => total + step.duration, 0)
+      if (totalDuration === 0) {
+        applyImmediate(finalStep.preset, releaseControls)
+        return
+      }
+
+      cancelTransition()
+      if ((options.lockControls ?? true) && controls) controls.enabled = false
+
+      const positionCurve = new CatmullRomCurve3(
+        [camera.position.clone(), ...steps.map((step) => step.preset.position.clone())],
+        false,
+        'centripetal',
+      )
+      const targetCurve = new CatmullRomCurve3(
+        [controls.target.clone(), ...steps.map((step) => step.preset.target.clone())],
+        false,
+        'centripetal',
+      )
+      const startFov = camera.fov
+      const progress = { value: 0 }
+      configureClipping(steps[0].preset)
+      const transition = gsap.to(progress, {
+        value: 1,
+        duration: totalDuration,
+        ease: CNC_CHOREOGRAPHY.productionMotion.cameraEase,
+        onUpdate: () => {
+          positionCurve.getPoint(progress.value, camera.position)
+          targetCurve.getPoint(progress.value, controls.target)
+          camera.fov = MathUtils.lerp(startFov, finalStep.preset.fov, progress.value)
+          camera.updateProjectionMatrix()
+          controls.update()
+          invalidate()
+        },
+        onComplete: () => {
+          camera.position.copy(finalStep.preset.position)
+          controls.target.copy(finalStep.preset.target)
+          camera.fov = finalStep.preset.fov
+          if (transitionRef.current === transition) transitionRef.current = null
+          configureClipping(finalStep.preset)
+          if (releaseControls) controls.enabled = true
+          controls.update()
+          invalidate()
+          if (import.meta.env.DEV) {
+            console.info(
+              `[CNC] Camera ${label} complete ${JSON.stringify(presetDiagnostic(finalStep.preset))}`,
+            )
+          }
+        },
+      })
+      transitionRef.current = transition
+
+      if (import.meta.env.DEV) {
+        console.info(
+          `[CNC] Camera ${label} started ${JSON.stringify({
+            interpolation: 'centripetal Catmull-Rom',
+            duration: Number(totalDuration.toFixed(3)),
+            waypoints: steps.map((step) => ({
+              name: step.name,
+              duration: step.duration,
+              ...presetDiagnostic(step.preset),
+            })),
+          })}`,
+        )
+      }
+    },
+    [applyImmediate, camera, cancelTransition, configureClipping, invalidate],
+  )
+
   const goToWaypoint = useCallback(
     (name: CameraWaypointName, options: CameraTransitionOptions = {}) => {
       const preset = getPreset(name)
@@ -406,9 +523,13 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
             ]
           : []
       })
-      runTransition(steps, `path ${name.toUpperCase()}`, options)
+      const runPath =
+        name === 'finishedInspection' || name === 'finishedToDuman'
+          ? runContinuousTransition
+          : runTransition
+      runPath(steps, `path ${name.toUpperCase()}`, options)
     },
-    [getPreset, runTransition],
+    [getPreset, runContinuousTransition, runTransition],
   )
 
   const goToHero = useCallback(
@@ -481,7 +602,9 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
       'doorApproach',
       'doorThreshold',
       'interior',
+      'finishedInspectionStart',
       'finishedInspection',
+      'finishedRetreat',
       'exitThreshold',
       'exitClearance',
       'dumanApproach',
