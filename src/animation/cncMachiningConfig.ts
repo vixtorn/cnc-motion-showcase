@@ -25,7 +25,7 @@ export const CNC_MACHINING = {
     homeReturnDuration: 1.1,
   },
   chuck: {
-    machiningRpmVisualSpeed: 60 / 4.2,
+    machiningRpmVisualSpeed: 60 / 1.6,
     inspectionRpmVisualSpeed: 4.5,
   },
   sparks: {
