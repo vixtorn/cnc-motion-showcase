@@ -4,7 +4,10 @@ import { useThree } from '@react-three/fiber'
 import gsap from 'gsap'
 import { CatmullRomCurve3, MathUtils, PerspectiveCamera, Vector3, type Box3 } from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
-import { getEffectiveCameraDuration } from '../animation/cncChoreographyConfig'
+import {
+  CNC_CHOREOGRAPHY,
+  getEffectiveCameraDuration,
+} from '../animation/cncChoreographyConfig'
 import { prefersReducedMotion } from '../animation/motionPreferences'
 import { VISUAL_CALIBRATION } from '../animation/visualCalibrationConfig'
 
@@ -347,7 +350,10 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
 
       configureClipping(steps[0].preset)
       const transition = gsap.timeline({
-        defaults: { ease: 'power3.inOut', overwrite: true },
+        defaults: {
+          ease: CNC_CHOREOGRAPHY.productionMotion.cameraEase,
+          overwrite: true,
+        },
         onUpdate: () => {
           camera.updateProjectionMatrix()
           controls.update()
@@ -438,7 +444,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
       const transition = gsap.to(progress, {
         value: 1,
         duration: totalDuration,
-        ease: 'power2.inOut',
+        ease: CNC_CHOREOGRAPHY.productionMotion.cameraEase,
         onUpdate: () => {
           positionCurve.getPoint(progress.value, camera.position)
           targetCurve.getPoint(progress.value, controls.target)

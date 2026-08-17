@@ -101,16 +101,49 @@ export function useCncChoreography({
       reducedMotion
         ? Math.max(value * scale, CNC_CHOREOGRAPHY.reducedMotion.minimumDuration)
         : value
-    const at = (value: number) => value * scale
+    const productionMotionSpeed = CNC_CHOREOGRAPHY.productionMotion.speedMultiplier
+    const motionDuration = (value: number) =>
+      reducedMotion ? duration(value) : value / productionMotionSpeed
+    const cameraDurationScale = reducedMotion ? scale : 1 / productionMotionSpeed
     const timings = CNC_CHOREOGRAPHY.timings
-    const doorStart = at(timings.establishingHold)
-    const cameraEntryStart = at(timings.cameraEntryDelay)
+    const cameraPathDuration = (
+      name: 'heroToInterior' | 'finishedInspection' | 'finishedToDuman',
+    ) =>
+      reducedMotion
+        ? 0
+        : VISUAL_CALIBRATION.camera.paths[name].reduce(
+            (total, step) =>
+              total +
+              getEffectiveCameraDuration(
+                step.duration * cameraDurationScale,
+                cameraSpeedMultiplier,
+              ),
+            0,
+          )
+    const doorStart = duration(timings.establishingHold)
+    const cameraEntryStart = duration(timings.cameraEntryDelay)
+    const cameraEntryEnd = cameraEntryStart + cameraPathDuration('heroToInterior')
+    const chuckStart = cameraEntryEnd + duration(timings.interiorSettleHold)
+    const spindleStartupEnd =
+      chuckStart +
+      motionDuration(timings.chuckSlowSpinDuration) +
+      motionDuration(timings.chuckAccelerationDuration)
+    const tailstockStart = chuckStart + duration(timings.tailstockAfterChuckStart)
+    const turretLongitudinalStart =
+      spindleStartupEnd + duration(timings.spindleToTurretHold)
+    const turretLongitudinalEnd =
+      turretLongitudinalStart + motionDuration(timings.turretLongitudinalDuration)
+    const turretIndexStart =
+      turretLongitudinalEnd + duration(timings.mechanicalTransitionGap)
+    const turretIndexEnd =
+      turretIndexStart + motionDuration(timings.turretIndexDuration)
     const turret = CNC_CHOREOGRAPHY.turret
     const longitudinalOffsets = { [turret.longitudinalAxis]: turret.longitudinalOffset }
     const machiningTimings = CNC_MACHINING.timings
-    const singleApproachStart = at(timings.turretRadialStartTime)
+    const singleApproachStart =
+      turretIndexEnd + duration(timings.mechanicalTransitionGap)
     const cuttingContactStart =
-      singleApproachStart + duration(machiningTimings.singleApproachDuration)
+      singleApproachStart + motionDuration(machiningTimings.singleApproachDuration)
     const coolantStart =
       cuttingContactStart + duration(machiningTimings.postContactCoolantDelay)
     const workpieceSwap =
@@ -121,32 +154,22 @@ export function useCncChoreography({
       workpieceSwap + duration(machiningTimings.occlusionHoldAfterSwap)
     const coolantRampOutStart =
       workpieceSwap + duration(machiningTimings.coolantRampOutAfterSwap)
-    const turretRetractStart =
-      workpieceSwap + duration(machiningTimings.turretRetractAfterSwap)
     const spindleDecelerationStart =
       workpieceSwap + duration(machiningTimings.spindleDecelerationAfterSwap)
     const coolantRampOutEnd =
       coolantRampOutStart + duration(machiningTimings.coolantRampOutDuration)
-    const turretRetractEnd =
-      turretRetractStart + duration(machiningTimings.turretRetractDuration)
-    const interiorResultHoldStart = Math.max(coolantRampOutEnd, turretRetractEnd)
+    const machiningComplete = coolantRampOutEnd
+    const turretHomeReturnStart =
+      machiningComplete + duration(machiningTimings.postMachiningRetractionHold)
+    const turretHomeReturnEnd =
+      turretHomeReturnStart + duration(CNC_MACHINING.turret.homeReturnDuration)
+    const interiorResultHoldStart = Math.max(coolantRampOutEnd, turretHomeReturnEnd)
     const interiorResultHoldEnd =
       interiorResultHoldStart + duration(machiningTimings.interiorResultHoldDuration)
-    const cameraPathDuration = (name: 'finishedInspection' | 'finishedToDuman') =>
-      reducedMotion
-      ? 0
-      : VISUAL_CALIBRATION.camera.paths[name].reduce(
-          (total, step) =>
-            total + getEffectiveCameraDuration(step.duration * scale, cameraSpeedMultiplier),
-          0,
-        )
     const finishedInspectionPathDuration = cameraPathDuration('finishedInspection')
     const finishedInspectionHoldStart = interiorResultHoldEnd + finishedInspectionPathDuration
     const finishedInspectionHoldEnd =
       finishedInspectionHoldStart + duration(machiningTimings.finishedInspectionHoldDuration)
-    const turretHomeReturnStart = finishedInspectionHoldEnd
-    const turretHomeReturnEnd =
-      turretHomeReturnStart + duration(CNC_MACHINING.turret.homeReturnDuration)
     const exitToDumanPathDuration = cameraPathDuration('finishedToDuman')
     const cuttingOffsets = CNC_MACHINING.turret.machiningOffsets
     const coolantLevel = { value: 0 }
@@ -165,11 +188,11 @@ export function useCncChoreography({
     })
 
     timeline.to({}, { duration: duration(timings.establishingHold) }, 0)
-    motion.addDoorToTimeline(timeline, doorStart, duration(timings.doorOpenDuration))
+    motion.addDoorToTimeline(timeline, doorStart, motionDuration(timings.doorOpenDuration))
     timeline.call(
       () =>
         camera.playPath('heroToInterior', {
-          durationScale: scale,
+          durationScale: cameraDurationScale,
           lockControls: false,
           releaseControls: false,
         }),
@@ -180,36 +203,36 @@ export function useCncChoreography({
       () =>
         motion.startChuck({
           slowSpinRpmVisualSpeed: CNC_CHOREOGRAPHY.chuckStartup.slowSpinRpmVisualSpeed,
-          slowSpinDuration: duration(timings.chuckSlowSpinDuration),
-          accelerationDuration: duration(timings.chuckAccelerationDuration),
+          slowSpinDuration: motionDuration(timings.chuckSlowSpinDuration),
+          accelerationDuration: motionDuration(timings.chuckAccelerationDuration),
           rpmVisualSpeed: CNC_MACHINING.chuck.machiningRpmVisualSpeed,
         }),
       [],
-      at(timings.chuckStartTime),
+      chuckStart,
     )
     motion.addTailstockToTimeline(
       timeline,
-      at(timings.tailstockStartTime),
-      duration(timings.tailstockDuration),
+      tailstockStart,
+      motionDuration(timings.tailstockDuration),
     )
     motion.addTurretCarriageToTimeline(
       timeline,
       longitudinalOffsets,
-      at(timings.turretLongitudinalStartTime),
-      duration(timings.turretLongitudinalDuration),
+      turretLongitudinalStart,
+      motionDuration(timings.turretLongitudinalDuration),
       'longitudinal',
     )
     motion.addTurretIndexToTimeline(
       timeline,
       turret.sequenceIndexRadians,
-      at(timings.turretIndexStartTime),
-      duration(timings.turretIndexDuration),
+      turretIndexStart,
+      motionDuration(timings.turretIndexDuration),
     )
     motion.addTurretCarriageToTimeline(
       timeline,
       cuttingOffsets,
       singleApproachStart,
-      duration(machiningTimings.singleApproachDuration),
+      motionDuration(machiningTimings.singleApproachDuration),
       'single-machining-approach',
     )
     if (!reducedMotion) {
@@ -266,18 +289,11 @@ export function useCncChoreography({
       )
     }
 
-    motion.addTurretCarriageToTimeline(
-      timeline,
-      CNC_MACHINING.turret.inspectionOffsets,
-      turretRetractStart,
-      duration(machiningTimings.turretRetractDuration),
-      'inspection-retract',
-    )
     timeline.call(
       () =>
         motion.setChuckVisualRpm(
           CNC_MACHINING.chuck.inspectionRpmVisualSpeed,
-          duration(machiningTimings.spindleDecelerationDuration),
+          motionDuration(machiningTimings.spindleDecelerationDuration),
         ),
       [],
       spindleDecelerationStart,
@@ -290,7 +306,7 @@ export function useCncChoreography({
     timeline.call(
       () =>
         camera.playPath('finishedInspection', {
-          durationScale: scale,
+          durationScale: cameraDurationScale,
           lockControls: false,
           releaseControls: false,
         }),
@@ -317,14 +333,14 @@ export function useCncChoreography({
     timeline.call(
       () =>
         camera.playPath('finishedToDuman', {
-          durationScale: scale,
+          durationScale: cameraDurationScale,
           lockControls: false,
           releaseControls: false,
         }),
       [],
-      turretHomeReturnEnd,
+      finishedInspectionHoldEnd,
     )
-    timeline.to({}, { duration: exitToDumanPathDuration }, turretHomeReturnEnd)
+    timeline.to({}, { duration: exitToDumanPathDuration }, finishedInspectionHoldEnd)
 
     timelineRef.current = timeline
     setSequenceState('playing')
@@ -333,8 +349,11 @@ export function useCncChoreography({
         `[CNC] Sequence timeline ${JSON.stringify({
           reducedMotion,
           duration: Number(timeline.duration().toFixed(3)),
-          doorDuration: timings.doorOpenDuration,
+          productionMotionSpeed,
+          cameraDurationScale,
+          doorDuration: Number(motionDuration(timings.doorOpenDuration).toFixed(3)),
           cameraEntryStart: Number(cameraEntryStart.toFixed(3)),
+          cameraEntryEnd: Number(cameraEntryEnd.toFixed(3)),
           cameraSpeedMultiplier,
           turretLongitudinalOffset: turret.longitudinalOffset,
           turretMachiningOffsets: CNC_MACHINING.turret.machiningOffsets,
@@ -346,12 +365,15 @@ export function useCncChoreography({
           occlusionRampStart: Number(occlusionRampStart.toFixed(3)),
           occlusionRampOutStart: Number(occlusionRampOutStart.toFixed(3)),
           coolantRampOutStart: Number(coolantRampOutStart.toFixed(3)),
+          machiningComplete: Number(machiningComplete.toFixed(3)),
           interiorResultHoldStart: Number(interiorResultHoldStart.toFixed(3)),
           interiorResultHoldEnd: Number(interiorResultHoldEnd.toFixed(3)),
           chuckStartup: {
-            start: Number(at(timings.chuckStartTime).toFixed(3)),
-            slowSpinDuration: Number(duration(timings.chuckSlowSpinDuration).toFixed(3)),
-            accelerationDuration: Number(duration(timings.chuckAccelerationDuration).toFixed(3)),
+            start: Number(chuckStart.toFixed(3)),
+            slowSpinDuration: Number(motionDuration(timings.chuckSlowSpinDuration).toFixed(3)),
+            accelerationDuration: Number(
+              motionDuration(timings.chuckAccelerationDuration).toFixed(3),
+            ),
           },
           finishedInspectionPathDuration: Number(finishedInspectionPathDuration.toFixed(3)),
           finishedInspectionHoldStart: Number(finishedInspectionHoldStart.toFixed(3)),
@@ -359,6 +381,7 @@ export function useCncChoreography({
           turretHomeReturnStart: Number(turretHomeReturnStart.toFixed(3)),
           turretHomeReturnEnd: Number(turretHomeReturnEnd.toFixed(3)),
           turretHomeReturnDuration: CNC_MACHINING.turret.homeReturnDuration,
+          postMachiningRetractionHold: machiningTimings.postMachiningRetractionHold,
           exitToDumanPathDuration: Number(exitToDumanPathDuration.toFixed(3)),
           cameraBeatOrder: [
             'doorApproach',
@@ -371,7 +394,6 @@ export function useCncChoreography({
             'dumanFinal',
           ],
           cuttingOffsets,
-          inspectionOffsets: CNC_MACHINING.turret.inspectionOffsets,
         })}`,
       )
     }
