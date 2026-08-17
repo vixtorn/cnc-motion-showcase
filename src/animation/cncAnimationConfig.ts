@@ -14,6 +14,7 @@ export const CNC_NODE_NAMES = {
   turretLegacyAssembly: 'Turret_Assembly',
   turretBody: 'Turret_Body',
   turretToolBlocks: 'Turret_ToolBlocks',
+  turretRearSleeve: 'Turret_RearSleeve',
   turretCenterHub: 'Turret_CenterHub',
   door: 'FrontDoor_Assembly',
   doorBody: 'FrontDoor_Body',

@@ -222,6 +222,7 @@ const buildInspection = (scene: Object3D): CncInspection => {
     turretLegacyAssembly: findNode(CNC_NODE_NAMES.turretLegacyAssembly),
     turretBody: findNode(CNC_NODE_NAMES.turretBody),
     turretToolBlocks: findNode(CNC_NODE_NAMES.turretToolBlocks),
+    turretRearSleeve: findNode(CNC_NODE_NAMES.turretRearSleeve),
     turretCenterHub: findNode(CNC_NODE_NAMES.turretCenterHub),
     door: findNode(CNC_NODE_NAMES.door),
     doorBody: findNode(CNC_NODE_NAMES.doorBody),
@@ -238,6 +239,7 @@ const buildInspection = (scene: Object3D): CncInspection => {
     tailstock: nodes.tailstock !== null,
     turretCarriage: nodes.turretCarriage !== null,
     turretIndex: nodes.turretIndex !== null,
+    turretRearSleeve: nodes.turretRearSleeve !== null,
     turretCenterHub: nodes.turretCenterHub !== null,
     door: nodes.door !== null,
     doorGlass: nodes.doorGlass !== null,
@@ -314,6 +316,22 @@ const buildInspection = (scene: Object3D): CncInspection => {
   }
 
   if (
+    nodes.turretRearSleeve &&
+    nodes.turretCarriage &&
+    nodes.turretRearSleeve.parent !== nodes.turretCarriage
+  ) {
+    warnings.push('Turret_RearSleeve is not a direct child of Turret_CarriageAssembly.')
+  }
+
+  if (
+    nodes.turretRearSleeve &&
+    nodes.turretIndex &&
+    isDescendantOf(nodes.turretRearSleeve, nodes.turretIndex)
+  ) {
+    warnings.push('Turret_RearSleeve is incorrectly inside Turret_IndexAssembly and would rotate during indexing.')
+  }
+
+  if (
     nodes.turretCenterHub &&
     nodes.turretCarriage &&
     !isDescendantOf(nodes.turretCenterHub, nodes.turretCarriage)
@@ -354,6 +372,7 @@ const buildInspection = (scene: Object3D): CncInspection => {
     nodes.mainChuckBody,
     nodes.turretBody,
     nodes.turretToolBlocks,
+    nodes.turretRearSleeve,
   ].flatMap(createPbrMaterialDiagnostics)
   const { bounds: dumanBadgeBounds, diagnostic: dumanBadgeDiagnostic } =
     createBadgeDiagnostic(nodes.dumanBadge)
@@ -363,8 +382,14 @@ const buildInspection = (scene: Object3D): CncInspection => {
     nodes.turretLegacyAssembly,
     nodes.turretBody,
     nodes.turretToolBlocks,
+    nodes.turretRearSleeve,
     nodes.turretCenterHub,
   ].map(createTransformDiagnostic)
+  const turretRearSleeveDiagnostic = {
+    audit: auditRows.find((row) => row.name === CNC_NODE_NAMES.turretRearSleeve) ?? null,
+    transform: createTransformDiagnostic(nodes.turretRearSleeve),
+    materials: createPbrMaterialDiagnostics(nodes.turretRearSleeve),
+  }
   const interiorSubjectDiagnostics = [
     nodes.mainChuckBody,
     nodes.workpiece,
@@ -390,6 +415,9 @@ const buildInspection = (scene: Object3D): CncInspection => {
       `[CNC] Representative metal diagnostics ${JSON.stringify(representativeMetalDiagnostics)}`,
     )
     console.info(`[CNC] Turret transform diagnostics ${JSON.stringify(turretTransformDiagnostics)}`)
+    console.info(
+      `[CNC] Turret_RearSleeve diagnostics ${JSON.stringify(turretRearSleeveDiagnostic)}`,
+    )
     console.info(
       `[CNC] Interior subject diagnostics ${JSON.stringify(interiorSubjectDiagnostics)}`,
     )

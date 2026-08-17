@@ -22,6 +22,7 @@ export type NodeCheckKey =
   | 'tailstock'
   | 'turretCarriage'
   | 'turretIndex'
+  | 'turretRearSleeve'
   | 'turretCenterHub'
   | 'door'
   | 'doorGlass'
@@ -43,6 +44,7 @@ export interface CncNodes {
   turretLegacyAssembly: Object3D | null
   turretBody: Object3D | null
   turretToolBlocks: Object3D | null
+  turretRearSleeve: Object3D | null
   turretCenterHub: Object3D | null
   door: Object3D | null
   doorBody: Object3D | null

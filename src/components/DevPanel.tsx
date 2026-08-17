@@ -47,6 +47,7 @@ const NODE_LABELS: Array<[NodeCheckKey, string]> = [
   ['tailstock', 'TAILSTOCK'],
   ['turretCarriage', 'TURRET CARRIAGE'],
   ['turretIndex', 'TURRET INDEX'],
+  ['turretRearSleeve', 'TURRET REAR SLEEVE'],
   ['turretCenterHub', 'TURRET CENTER HUB'],
   ['door', 'DOOR'],
   ['doorGlass', 'DOOR GLASS'],
