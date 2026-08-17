@@ -133,6 +133,8 @@ export function useCncChoreography({
       motionDuration(timings.chuckSlowSpinDuration) +
       motionDuration(timings.chuckAccelerationDuration)
     const tailstockStart = chuckStart + duration(timings.tailstockAfterChuckStart)
+    const tailstockContactEnd =
+      tailstockStart + motionDuration(timings.tailstockDuration)
     const turretLongitudinalStart =
       spindleStartupEnd + duration(timings.spindleToTurretHold)
     const turretLongitudinalEnd =
@@ -245,11 +247,9 @@ export function useCncChoreography({
       'single-machining-approach',
     )
     if (!reducedMotion) {
+      timeline.call(() => sparks?.startSparks('sequence'), [], tailstockContactEnd)
       timeline.call(
-        () => {
-          coolant.triggerHotChips()
-          sparks?.startSparks('sequence')
-        },
+        () => coolant.triggerHotChips(),
         [],
         cuttingContactStart,
       )
@@ -260,7 +260,7 @@ export function useCncChoreography({
           duration: machiningTimings.coolantRampInDuration,
           ease: 'power2.inOut',
           onStart: () => {
-            sparks?.stopSparks('sequence', true)
+            sparks?.stopSparks('sequence')
             coolant.startCoolant()
           },
           onUpdate: () => coolant.setCoolantIntensity(coolantLevel.value),
@@ -381,6 +381,8 @@ export function useCncChoreography({
           cameraEntryStart: Number(cameraEntryStart.toFixed(3)),
           cameraEntryEnd: Number(cameraEntryEnd.toFixed(3)),
           cameraSpeedMultiplier,
+          tailstockStart: Number(tailstockStart.toFixed(3)),
+          tailstockContactEnd: Number(tailstockContactEnd.toFixed(3)),
           turretLongitudinalOffset: turret.longitudinalOffset,
           turretMachiningOffsets: CNC_MACHINING.turret.machiningOffsets,
           turretSequenceIndexAngleDeg: turret.sequenceIndexAngleDeg,
