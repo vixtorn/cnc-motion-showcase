@@ -161,8 +161,12 @@ export function useCncChoreography({
     const machiningComplete = coolantRampOutEnd
     const turretHomeReturnStart =
       machiningComplete + duration(machiningTimings.postMachiningRetractionHold)
+    const turretHomeReturnStageDuration =
+      CNC_MACHINING.turret.homeReturnDuration / 2
+    const turretHomeReturnStageTwoStart =
+      turretHomeReturnStart + duration(turretHomeReturnStageDuration)
     const turretHomeReturnEnd =
-      turretHomeReturnStart + duration(CNC_MACHINING.turret.homeReturnDuration)
+      turretHomeReturnStageTwoStart + duration(turretHomeReturnStageDuration)
     const interiorResultHoldStart = Math.max(coolantRampOutEnd, turretHomeReturnEnd)
     const interiorResultHoldEnd =
       interiorResultHoldStart + duration(machiningTimings.interiorResultHoldDuration)
@@ -172,6 +176,7 @@ export function useCncChoreography({
       finishedInspectionHoldStart + duration(machiningTimings.finishedInspectionHoldDuration)
     const exitToDumanPathDuration = cameraPathDuration('finishedToDuman')
     const cuttingOffsets = CNC_MACHINING.turret.machiningOffsets
+    const turretAfterXReturnOffsets = { ...cuttingOffsets, x: 0 }
     const coolantLevel = { value: 0 }
     const occlusionLevel = { value: 0 }
 
@@ -325,10 +330,17 @@ export function useCncChoreography({
     )
     motion.addTurretCarriageToTimeline(
       timeline,
-      {},
+      turretAfterXReturnOffsets,
       turretHomeReturnStart,
-      duration(CNC_MACHINING.turret.homeReturnDuration),
-      'home-return',
+      duration(turretHomeReturnStageDuration),
+      'home-return-x',
+    )
+    motion.addTurretCarriageToTimeline(
+      timeline,
+      {},
+      turretHomeReturnStageTwoStart,
+      duration(turretHomeReturnStageDuration),
+      'home-return-z',
     )
     timeline.call(
       () =>
