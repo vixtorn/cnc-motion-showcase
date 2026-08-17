@@ -56,16 +56,25 @@ export interface CNCSceneHandle {
   pauseSequence: () => void
   resumeSequence: () => void
   resetSequence: () => void
+  setSequenceProgress: (progress: number) => void
+  getSequenceProgress: () => number
+  getSequenceDuration: () => number
 }
 
 interface CNCSceneProps {
   onInspection: (inspection: CncInspection) => void
   onSequenceStateChange: (state: CncSequenceState) => void
+  onSequenceProgressChange: (progress: number) => void
   cameraSpeedMultiplier: number
 }
 
 export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCScene(
-  { onInspection, onSequenceStateChange, cameraSpeedMultiplier },
+  {
+    onInspection,
+    onSequenceStateChange,
+    onSequenceProgressChange,
+    cameraSpeedMultiplier,
+  },
   ref,
 ) {
   const cameraRigRef = useRef<CameraRigHandle>(null)
@@ -80,6 +89,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     sparkRef,
     cameraSpeedMultiplier,
     onStateChange: onSequenceStateChange,
+    onProgressChange: onSequenceProgressChange,
   })
 
   useImperativeHandle(
@@ -139,6 +149,9 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
         sparkRef.current?.resetSparks()
         choreography.resetSequence()
       },
+      setSequenceProgress: choreography.setSequenceProgress,
+      getSequenceProgress: choreography.getSequenceProgress,
+      getSequenceDuration: choreography.getSequenceDuration,
     }),
     [choreography],
   )

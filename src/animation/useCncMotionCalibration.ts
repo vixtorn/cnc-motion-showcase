@@ -37,6 +37,7 @@ export interface CncMotionController {
   pauseChuck: () => void
   resumeChuck: () => void
   setChuckVisualRpm: (rpmVisualSpeed: number, duration: number) => void
+  setSequenceChuckState: (angle: number, speed: number) => void
   setTailstockContact: (contact: boolean) => void
   resetTailstock: () => void
   testTurretCarriage: (axis: CncAxis, direction: CalibrationDirection) => void
@@ -303,6 +304,25 @@ export function useCncMotionCalibration({
       }
     },
     [],
+  )
+
+  const setSequenceChuckState = useCallback(
+    (angle: number, speed: number) => {
+      const target = nodes.mainChuck
+      const home = homeTransforms.mainChuck
+      if (!target || !home) return
+      chuckSpeedTweenRef.current?.kill()
+      chuckSpeedTweenRef.current = null
+      if (chuckTickerRef.current) gsap.ticker.remove(chuckTickerRef.current)
+      chuckTickerRef.current = null
+      const normalizedAngle = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)
+      chuckStateRef.current = { angle: normalizedAngle, speed, paused: false }
+      target.rotation[CHUCK_ROTATION_AXIS] =
+        home.rotation[CHUCK_ROTATION_AXIS] + normalizedAngle
+      target.updateMatrixWorld(true)
+      invalidate()
+    },
+    [homeTransforms.mainChuck, invalidate, nodes.mainChuck],
   )
 
   const animatePosition = useCallback(
@@ -780,6 +800,7 @@ export function useCncMotionCalibration({
       pauseChuck,
       resumeChuck,
       setChuckVisualRpm,
+      setSequenceChuckState,
       setTailstockContact,
       resetTailstock,
       testTurretCarriage,
@@ -813,6 +834,7 @@ export function useCncMotionCalibration({
       restoreAllImmediate,
       resumeChuck,
       setChuckVisualRpm,
+      setSequenceChuckState,
       setDoorOpen,
       setTailstockContact,
       startChuck,

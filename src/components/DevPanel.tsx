@@ -12,6 +12,7 @@ interface DevPanelProps {
   inspection: CncInspection | null
   isChuckTesting: boolean
   sequenceState: CncSequenceState
+  sequenceProgress: number
   cameraSpeedMultiplier: number
   onCameraSpeedMultiplierChange: (multiplier: number) => void
   onPrintAudit: () => void
@@ -41,6 +42,7 @@ interface DevPanelProps {
   onPauseSequence: () => void
   onResumeSequence: () => void
   onResetSequence: () => void
+  onSequenceProgressChange: (progress: number) => void
 }
 
 const NODE_LABELS: Array<[NodeCheckKey, string]> = [
@@ -61,6 +63,7 @@ export function DevPanel({
   inspection,
   isChuckTesting,
   sequenceState,
+  sequenceProgress,
   cameraSpeedMultiplier,
   onCameraSpeedMultiplierChange,
   onPrintAudit,
@@ -90,6 +93,7 @@ export function DevPanel({
   onPauseSequence,
   onResumeSequence,
   onResetSequence,
+  onSequenceProgressChange,
 }: DevPanelProps) {
   const checks = inspection?.checks
   const diagnosticsDisabled = sequenceState === 'playing' || sequenceState === 'paused'
@@ -164,6 +168,20 @@ export function DevPanel({
               [ RESET SEQUENCE ]
             </button>
           </div>
+          <label className="sequence-scrub-control">
+            <span>SEQUENCE SCRUB</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.001"
+              value={sequenceProgress}
+              disabled={!inspection}
+              aria-label="Sequence scrub progress"
+              onInput={(event) => onSequenceProgressChange(Number(event.currentTarget.value))}
+            />
+            <output>{Math.round(sequenceProgress * 100)}%</output>
+          </label>
         </section>
 
         <fieldset className="calibration-diagnostics" disabled={diagnosticsDisabled}>

@@ -24,6 +24,7 @@ export interface CoolantEffectHandle {
   setCoolantIntensity: (value: number) => void
   setRevealOcclusion: (value: number) => void
   triggerHotChips: () => void
+  setHotChipsActive: (active: boolean) => void
   stopCoolant: () => void
   pauseCoolant: () => void
   resumeCoolant: () => void
@@ -364,6 +365,21 @@ export const CoolantEffect = forwardRef<CoolantEffectHandle>(function CoolantEff
     invalidate()
   }, [chipGeometry, chipMaterial, invalidate, spawnHotChip])
 
+  const setHotChipsActive = useCallback(
+    (active: boolean) => {
+      if (active) {
+        if (!chipActiveRef.current) triggerHotChips()
+        return
+      }
+      if (!chipActiveRef.current) return
+      chipActiveRef.current = false
+      chipMaterial.opacity = 0
+      if (chipPointsRef.current) chipPointsRef.current.visible = false
+      invalidate()
+    },
+    [chipMaterial, invalidate, triggerHotChips],
+  )
+
   const stopCoolant = useCallback(() => {
     activeRef.current = false
     pausedRef.current = false
@@ -422,6 +438,7 @@ export const CoolantEffect = forwardRef<CoolantEffectHandle>(function CoolantEff
       setCoolantIntensity,
       setRevealOcclusion,
       triggerHotChips,
+      setHotChipsActive,
       stopCoolant,
       pauseCoolant,
       resumeCoolant,
@@ -437,6 +454,7 @@ export const CoolantEffect = forwardRef<CoolantEffectHandle>(function CoolantEff
       setRevealOcclusion,
       startCoolant,
       stopCoolant,
+      setHotChipsActive,
       triggerHotChips,
     ],
   )

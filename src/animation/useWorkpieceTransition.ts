@@ -14,6 +14,7 @@ interface UseWorkpieceTransitionOptions {
 }
 
 export interface WorkpieceTransitionController {
+  setWorkpieceState: (state: 'raw' | 'finished') => void
   revealFinishedImmediate: () => void
   resetWorkpieceImmediate: () => void
   getWorkpieceSnapshot: () => Record<string, unknown>
@@ -44,17 +45,19 @@ export function useWorkpieceTransition({
     [finished, raw],
   )
 
-  const resetWorkpieceImmediate = useCallback(() => {
-    if (raw && homes.raw) restoreHome(raw, homes.raw)
-    if (finished && homes.finished) restoreHome(finished, homes.finished)
-    if (raw) raw.visible = true
-    if (finished) finished.visible = false
-    invalidate()
-  }, [finished, homes, invalidate, raw])
+  const setWorkpieceState = useCallback((state: 'raw' | 'finished') => {
+    if (state === 'raw') {
+      if (raw?.visible && !finished?.visible) return
+      if (raw && homes.raw) restoreHome(raw, homes.raw)
+      if (finished && homes.finished) restoreHome(finished, homes.finished)
+      if (raw) raw.visible = true
+      if (finished) finished.visible = false
+      invalidate()
+      return
+    }
 
-  const revealFinishedImmediate = useCallback(() => {
     if (!raw || !finished || !homes.raw || !homes.finished) return
-
+    if (!raw.visible && finished.visible) return
     const localRotationDelta = homes.raw.quaternion
       .clone()
       .invert()
@@ -65,8 +68,17 @@ export function useWorkpieceTransition({
     raw.visible = false
     finished.updateMatrixWorld(true)
     invalidate()
+  }, [finished, homes, invalidate, raw])
 
-    if (import.meta.env.DEV) {
+  const resetWorkpieceImmediate = useCallback(() => {
+    setWorkpieceState('raw')
+  }, [setWorkpieceState])
+
+  const revealFinishedImmediate = useCallback(() => {
+    const wasFinished = !raw?.visible && Boolean(finished?.visible)
+    setWorkpieceState('finished')
+
+    if (import.meta.env.DEV && !wasFinished && raw && finished) {
       console.info(
         `[CNC] Workpiece reveal ${JSON.stringify({
           sharedParent: raw.parent === finished.parent,
@@ -86,7 +98,7 @@ export function useWorkpieceTransition({
         })}`,
       )
     }
-  }, [finished, homes, invalidate, raw])
+  }, [finished, raw, setWorkpieceState])
 
   const getWorkpieceSnapshot = useCallback(
     () => ({
@@ -107,7 +119,7 @@ export function useWorkpieceTransition({
   }, [resetWorkpieceImmediate])
 
   return useMemo(
-    () => ({ revealFinishedImmediate, resetWorkpieceImmediate, getWorkpieceSnapshot }),
-    [getWorkpieceSnapshot, resetWorkpieceImmediate, revealFinishedImmediate],
+    () => ({ setWorkpieceState, revealFinishedImmediate, resetWorkpieceImmediate, getWorkpieceSnapshot }),
+    [getWorkpieceSnapshot, resetWorkpieceImmediate, revealFinishedImmediate, setWorkpieceState],
   )
 }

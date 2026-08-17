@@ -17,6 +17,7 @@ function App() {
   const [inspection, setInspection] = useState<CncInspection | null>(null)
   const [isChuckTesting, setIsChuckTesting] = useState(false)
   const [sequenceState, setSequenceState] = useState<CncSequenceState>('idle')
+  const [sequenceProgress, setSequenceProgress] = useState(0)
   const [cameraSpeedMultiplier, setCameraSpeedMultiplier] = useState<number>(
     CNC_CHOREOGRAPHY.cameraSpeed.defaultMultiplier,
   )
@@ -65,6 +66,7 @@ function App() {
             ref={sceneRef}
             onInspection={handleInspection}
             onSequenceStateChange={handleSequenceStateChange}
+            onSequenceProgressChange={setSequenceProgress}
             cameraSpeedMultiplier={cameraSpeedMultiplier}
           />
         </ModelErrorBoundary>
@@ -89,6 +91,7 @@ function App() {
           inspection={inspection}
           isChuckTesting={isChuckTesting}
           sequenceState={sequenceState}
+          sequenceProgress={sequenceProgress}
           cameraSpeedMultiplier={cameraSpeedMultiplier}
           onCameraSpeedMultiplierChange={setCameraSpeedMultiplier}
           onPrintAudit={() => inspection?.printAudit()}
@@ -139,6 +142,10 @@ function App() {
           onResetSequence={() => {
             setIsChuckTesting(false)
             sceneRef.current?.resetSequence()
+          }}
+          onSequenceProgressChange={(progress) => {
+            setIsChuckTesting(false)
+            sceneRef.current?.setSequenceProgress(progress)
           }}
         />
       ) : null}

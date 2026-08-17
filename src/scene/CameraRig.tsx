@@ -46,6 +46,8 @@ export interface CameraRigHandle {
   goToInterior: (options?: CameraTransitionOptions) => void
   goToWaypoint: (name: CameraWaypointName, options?: CameraTransitionOptions) => void
   playPath: (name: CameraPathName, options?: CameraPathOptions) => void
+  applyPathProgress: (name: CameraPathName, progress: number) => void
+  getCameraSnapshot: () => Record<string, unknown>
   testDumanCamera: () => void
   pauseTransition: () => void
   resumeTransition: () => void
@@ -100,6 +102,15 @@ const presetDiagnostic = (preset: CameraPreset) => ({
   distance: Number(preset.distance.toFixed(4)),
   fov: preset.fov,
 })
+
+const CAMERA_PATH_STARTS: Record<CameraPathName, CameraWaypointName> = {
+  heroToInterior: 'hero',
+  interiorToDuman: 'interior',
+  finishedInspection: 'interior',
+  finishedToDuman: 'finishedInspection',
+}
+
+const cameraPathEase = gsap.parseEase(CNC_CHOREOGRAPHY.productionMotion.cameraEase)
 
 export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function CameraRig(
   {
@@ -532,6 +543,81 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     [getPreset, runContinuousTransition, runTransition],
   )
 
+  const applyPathProgress = useCallback(
+    (name: CameraPathName, progress: number) => {
+      if (!(camera instanceof PerspectiveCamera)) return
+      const controls = controlsRef.current
+      const startPreset = getPreset(CAMERA_PATH_STARTS[name])
+      if (!controls || !startPreset) return
+      const steps = cameraCalibration.paths[name].flatMap((step) => {
+        const preset = getPreset(step.waypoint as CameraWaypointName)
+        return preset ? [{ preset, duration: step.duration }] : []
+      })
+      const finalStep = steps.at(-1)
+      if (!finalStep) return
+      const clampedProgress = MathUtils.clamp(progress, 0, 1)
+
+      if (name === 'finishedInspection' || name === 'finishedToDuman') {
+        const easedProgress = cameraPathEase(clampedProgress)
+        new CatmullRomCurve3(
+          [startPreset.position, ...steps.map((step) => step.preset.position)],
+          false,
+          'centripetal',
+        ).getPoint(easedProgress, camera.position)
+        new CatmullRomCurve3(
+          [startPreset.target, ...steps.map((step) => step.preset.target)],
+          false,
+          'centripetal',
+        ).getPoint(easedProgress, controls.target)
+        camera.fov = MathUtils.lerp(startPreset.fov, finalStep.preset.fov, easedProgress)
+      } else {
+        const totalDuration = steps.reduce((total, step) => total + step.duration, 0)
+        const elapsed = clampedProgress * totalDuration
+        let cursor = 0
+        let segmentStart = startPreset
+        for (const step of steps) {
+          const segmentEnd = cursor + step.duration
+          if (elapsed <= segmentEnd || step === finalStep) {
+            const localProgress =
+              step.duration === 0 ? 1 : MathUtils.clamp((elapsed - cursor) / step.duration, 0, 1)
+            const easedProgress = cameraPathEase(localProgress)
+            camera.position.lerpVectors(
+              segmentStart.position,
+              step.preset.position,
+              easedProgress,
+            )
+            controls.target.lerpVectors(
+              segmentStart.target,
+              step.preset.target,
+              easedProgress,
+            )
+            camera.fov = MathUtils.lerp(segmentStart.fov, step.preset.fov, easedProgress)
+            break
+          }
+          cursor = segmentEnd
+          segmentStart = step.preset
+        }
+      }
+
+      configureClipping(clampedProgress === 1 ? finalStep.preset : steps[0].preset)
+      camera.updateProjectionMatrix()
+      controls.update()
+      invalidate()
+    },
+    [camera, configureClipping, getPreset, invalidate],
+  )
+
+  const getCameraSnapshot = useCallback(
+    () => ({
+      position: camera.position.toArray().map((value) => Number(value.toFixed(6))),
+      target:
+        controlsRef.current?.target.toArray().map((value) => Number(value.toFixed(6))) ?? null,
+      fov: Number((camera as PerspectiveCamera).fov?.toFixed(4) ?? 0),
+      transitionActive: Boolean(transitionRef.current),
+    }),
+    [camera],
+  )
+
   const goToHero = useCallback(
     (options: CameraTransitionOptions = {}) => goToWaypoint('hero', options),
     [goToWaypoint],
@@ -570,6 +656,8 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
       goToInterior,
       goToWaypoint,
       playPath,
+      applyPathProgress,
+      getCameraSnapshot,
       testDumanCamera,
       pauseTransition,
       resumeTransition,
@@ -578,6 +666,8 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     }),
     [
       cancelTransition,
+      applyPathProgress,
+      getCameraSnapshot,
       goToHero,
       goToInterior,
       goToWaypoint,
