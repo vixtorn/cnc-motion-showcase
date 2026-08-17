@@ -20,11 +20,11 @@ export const CNC_MACHINING = {
   turret: {
     contactAdditionalOffsets: {
       x: 2.25,
-      z: 0.5,
+      z: -3.5,
     } as Partial<Record<CncAxis, number>>,
     inspectionOffsets: {
       x: 3,
-      z: 5.5,
+      z: 2.5,
     } as Partial<Record<CncAxis, number>>,
   },
   chuck: {

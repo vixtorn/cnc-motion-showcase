@@ -97,7 +97,13 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
       testWorkpieceTransition: () => modelRef.current?.revealFinishedImmediate(),
       resetMachining: () => {
         coolantRef.current?.resetCoolant()
-        modelRef.current?.resetWorkpieceImmediate()
+        const model = modelRef.current
+        model?.restoreAllImmediate()
+        if (import.meta.env.DEV) {
+          console.info(
+            `[CNC] Reset machining ${JSON.stringify(model?.getMotionSnapshot() ?? null)}`,
+          )
+        }
       },
       startChuckTest: () => modelRef.current?.startChuck({ rampDuration: 0.55 }),
       stopChuckTest: () => modelRef.current?.stopChuck(true),
