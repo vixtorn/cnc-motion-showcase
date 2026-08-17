@@ -96,6 +96,21 @@ const transformSnapshot = (target: Object3D) => ({
   ),
 })
 
+const worldTransformSnapshot = (target: Object3D | null) => {
+  if (!target) return null
+  target.updateWorldMatrix(true, false)
+  return {
+    position: target
+      .getWorldPosition(new Vector3())
+      .toArray()
+      .map((value) => Number(value.toFixed(6))),
+    quaternion: target
+      .getWorldQuaternion(new Quaternion())
+      .toArray()
+      .map((value) => Number(value.toFixed(6))),
+  }
+}
+
 const createHomeRelativeLocalAxisQuaternion = (
   home: HomeTransform,
   axis: CncAxis,
@@ -334,11 +349,18 @@ export function useCncMotionCalibration({
               ?.getWorldPosition(new Vector3())
               .toArray()
               .map((value) => Number(value.toFixed(4))),
+            rearSleeveWorld: worldTransformSnapshot(nodes.turretRearSleeve),
           })
         },
       )
     },
-    [animatePosition, homeTransforms.turretCarriage, nodes.turretCarriage, nodes.turretCenterHub],
+    [
+      animatePosition,
+      homeTransforms.turretCarriage,
+      nodes.turretCarriage,
+      nodes.turretCenterHub,
+      nodes.turretRearSleeve,
+    ],
   )
 
   const resetTurretCarriage = useCallback(() => {
@@ -398,6 +420,12 @@ export function useCncMotionCalibration({
                         .map((value) => Number(value.toFixed(6))),
                     }
                   : null,
+                rearSleeve: {
+                  local: nodes.turretRearSleeve
+                    ? transformSnapshot(nodes.turretRearSleeve)
+                    : null,
+                  world: worldTransformSnapshot(nodes.turretRearSleeve),
+                },
               },
             )
           },
@@ -410,6 +438,7 @@ export function useCncMotionCalibration({
       nodes.turretCarriage,
       nodes.turretCenterHub,
       nodes.turretIndex,
+      nodes.turretRearSleeve,
     ],
   )
 
@@ -426,9 +455,10 @@ export function useCncMotionCalibration({
             Number(value.toFixed(6)),
           ),
         },
+        rearSleeveWorld: worldTransformSnapshot(nodes.turretRearSleeve),
       })
     })
-  }, [homeTransforms.turretIndex, nodes.turretIndex, resetTarget])
+  }, [homeTransforms.turretIndex, nodes.turretIndex, nodes.turretRearSleeve, resetTarget])
 
   const setDoorOpen = useCallback(
     (open: boolean) => {
@@ -498,21 +528,6 @@ export function useCncMotionCalibration({
   }, [homeTransforms, invalidate, killAllMotion, nodes])
 
   const getMotionSnapshot = useCallback(() => {
-    const worldTransform = (target: Object3D | null) => {
-      if (!target) return null
-      target.updateWorldMatrix(true, false)
-      return {
-        position: target
-          .getWorldPosition(new Vector3())
-          .toArray()
-          .map((value) => Number(value.toFixed(6))),
-        quaternion: target
-          .getWorldQuaternion(new Quaternion())
-          .toArray()
-          .map((value) => Number(value.toFixed(6))),
-      }
-    }
-
     return {
       chuck: {
         angle: Number(chuckStateRef.current.angle.toFixed(6)),
@@ -527,8 +542,9 @@ export function useCncMotionCalibration({
         ? transformSnapshot(nodes.turretCarriage)
         : null,
       turretIndex: nodes.turretIndex ? transformSnapshot(nodes.turretIndex) : null,
-      turretIndexWorld: worldTransform(nodes.turretIndex),
-      turretCenterHubWorld: worldTransform(nodes.turretCenterHub),
+      turretIndexWorld: worldTransformSnapshot(nodes.turretIndex),
+      turretRearSleeveWorld: worldTransformSnapshot(nodes.turretRearSleeve),
+      turretCenterHubWorld: worldTransformSnapshot(nodes.turretCenterHub),
     }
   }, [nodes])
 
@@ -635,12 +651,19 @@ export function useCncMotionCalibration({
                 ?.getWorldPosition(new Vector3())
                 .toArray()
                 .map((value) => Number(value.toFixed(4))),
+              rearSleeveWorld: worldTransformSnapshot(nodes.turretRearSleeve),
             }),
         },
         at,
       )
     },
-    [homeTransforms.turretCarriage, invalidate, nodes.turretCarriage, nodes.turretCenterHub],
+    [
+      homeTransforms.turretCarriage,
+      invalidate,
+      nodes.turretCarriage,
+      nodes.turretCenterHub,
+      nodes.turretRearSleeve,
+    ],
   )
 
   const addTurretIndexToTimeline = useCallback(
@@ -670,13 +693,23 @@ export function useCncMotionCalibration({
                 ?.getWorldQuaternion(new Quaternion())
                 .toArray()
                 .map((value) => Number(value.toFixed(6))),
+              rearSleeveWorldQuaternion: nodes.turretRearSleeve
+                ?.getWorldQuaternion(new Quaternion())
+                .toArray()
+                .map((value) => Number(value.toFixed(6))),
             })
           },
         ),
         at,
       )
     },
-    [homeTransforms.turretIndex, invalidate, nodes.turretCenterHub, nodes.turretIndex],
+    [
+      homeTransforms.turretIndex,
+      invalidate,
+      nodes.turretCenterHub,
+      nodes.turretIndex,
+      nodes.turretRearSleeve,
+    ],
   )
 
   useEffect(
