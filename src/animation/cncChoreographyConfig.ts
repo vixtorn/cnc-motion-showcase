@@ -17,7 +17,7 @@ export const CNC_CHOREOGRAPHY = {
   },
   turret: {
     longitudinalAxis: 'z' as CncAxis,
-    longitudinalOffset: 6,
+    longitudinalOffset: 2.5,
     sequenceIndexAngleDeg: 30,
     sequenceIndexRadians: Math.PI / 6,
   },
