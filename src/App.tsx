@@ -7,6 +7,7 @@ import { CinematicNarrative } from './components/CinematicNarrative'
 import { DevPanel } from './components/DevPanel'
 import { LoadingScreen } from './components/LoadingScreen'
 import { ModelErrorBoundary } from './components/ModelErrorBoundary'
+import { PostCinematicIntro } from './components/PostCinematicIntro'
 import {
   CNC_SCROLL,
   useCncScrollDriver,
@@ -180,10 +181,7 @@ function App() {
         </div>
       </section>
 
-      <section className="post-cinematic-test" aria-label="Phase 3B test marker">
-        <span>DEV / PHASE 3B</span>
-        <p>Cinematic complete</p>
-      </section>
+      <PostCinematicIntro />
     </main>
   )
 }
