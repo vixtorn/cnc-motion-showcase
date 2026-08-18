@@ -27,6 +27,8 @@ interface ChuckStartOptions {
   slowSpinRpmVisualSpeed?: number
   slowSpinDuration?: number
   accelerationDuration?: number
+  onComplete?: () => void
+  onInterrupt?: () => void
 }
 
 type LocalOffsets = Partial<Record<CncAxis, number>>
@@ -47,6 +49,13 @@ export interface CncMotionController {
   setDoorOpen: (open: boolean) => void
   resetDoor: () => void
   resetAllAssemblies: () => void
+  operatorOpenDoor: () => Promise<boolean>
+  operatorStartSpindle: () => Promise<boolean>
+  operatorEngageTailstock: () => Promise<boolean>
+  operatorIndexTool: () => Promise<boolean>
+  operatorApproachCut: () => Promise<boolean>
+  operatorReturnTurretHome: () => Promise<boolean>
+  getChuckVisualRpm: () => number
   killAllMotion: () => void
   restoreAllImmediate: () => void
   getMotionSnapshot: () => Record<string, unknown>
@@ -216,7 +225,10 @@ export function useCncMotionCalibration({
       gsap.ticker.add(ticker)
 
       if (slowSpinDuration > 0 && slowSpinRpmVisualSpeed > 0) {
-        const startup = gsap.timeline()
+        const startup = gsap.timeline({
+          onComplete: options.onComplete,
+          onInterrupt: options.onInterrupt,
+        })
         startup
           .to(state, {
             speed: slowSpinSpeed,
@@ -251,11 +263,14 @@ export function useCncMotionCalibration({
         chuckSpeedTweenRef.current = startup
       } else if (rampDuration <= 0) {
         state.speed = targetSpeed
+        options.onComplete?.()
       } else {
         chuckSpeedTweenRef.current = gsap.to(state, {
           speed: targetSpeed,
           duration: rampDuration,
           ease: 'power2.inOut',
+          onComplete: options.onComplete,
+          onInterrupt: options.onInterrupt,
         })
       }
 
@@ -323,6 +338,11 @@ export function useCncMotionCalibration({
       invalidate()
     },
     [homeTransforms.mainChuck, invalidate, nodes.mainChuck],
+  )
+
+  const getChuckVisualRpm = useCallback(
+    () => (chuckStateRef.current.speed * 60) / (Math.PI * 2),
+    [],
   )
 
   const animatePosition = useCallback(
@@ -620,6 +640,143 @@ export function useCncMotionCalibration({
     resetDoor()
   }, [resetDoor, resetTailstock, resetTurretCarriage, resetTurretIndex, stopChuck])
 
+  const animateOperatorPosition = useCallback(
+    (
+      target: Object3D | null,
+      home: HomeTransform | null,
+      offsets: LocalOffsets,
+      duration: number = CNC_MOTION_CALIBRATION.translationDuration,
+    ) =>
+      new Promise<boolean>((resolve) => {
+        if (!target || !home) {
+          resolve(false)
+          return
+        }
+
+        let settled = false
+        const settle = (completed: boolean) => {
+          if (settled) return
+          settled = true
+          resolve(completed)
+        }
+        const offset = localOffsetFromHome(home, offsets)
+        gsap.killTweensOf(target.position)
+        gsap.to(target.position, {
+          x: home.position.x + offset.x,
+          y: home.position.y + offset.y,
+          z: home.position.z + offset.z,
+          duration,
+          ease: 'power2.inOut',
+          overwrite: true,
+          onUpdate: invalidate,
+          onComplete: () => settle(true),
+          onInterrupt: () => settle(false),
+        })
+      }),
+    [invalidate],
+  )
+
+  const operatorOpenDoor = useCallback(
+    () =>
+      animateOperatorPosition(nodes.door, homeTransforms.door, {
+        z: CNC_MOTION_CALIBRATION.doorOpenDistance,
+      }),
+    [animateOperatorPosition, homeTransforms.door, nodes.door],
+  )
+
+  const operatorStartSpindle = useCallback(
+    () =>
+      new Promise<boolean>((resolve) => {
+        if (!nodes.mainChuck || !homeTransforms.mainChuck) {
+          resolve(false)
+          return
+        }
+        let settled = false
+        const settle = (completed: boolean) => {
+          if (settled) return
+          settled = true
+          resolve(completed)
+        }
+        startChuck({
+          rampDuration: CNC_MOTION_CALIBRATION.translationDuration,
+          rpmVisualSpeed: CNC_MACHINING.chuck.machiningRpmVisualSpeed,
+          onComplete: () => settle(true),
+          onInterrupt: () => settle(false),
+        })
+      }),
+    [homeTransforms.mainChuck, nodes.mainChuck, startChuck],
+  )
+
+  const operatorEngageTailstock = useCallback(
+    () =>
+      animateOperatorPosition(nodes.tailstock, homeTransforms.tailstock, {
+        z: CNC_MOTION_CALIBRATION.tailstockContactDistance,
+      }),
+    [animateOperatorPosition, homeTransforms.tailstock, nodes.tailstock],
+  )
+
+  const operatorIndexTool = useCallback(
+    () =>
+      new Promise<boolean>((resolve) => {
+        const target = nodes.turretIndex
+        const home = homeTransforms.turretIndex
+        if (!target || !home) {
+          resolve(false)
+          return
+        }
+        let settled = false
+        const settle = (completed: boolean) => {
+          if (settled) return
+          settled = true
+          resolve(completed)
+        }
+        const targetQuaternion = createHomeRelativeLocalAxisQuaternion(
+          home,
+          TURRET_INDEX_AXIS,
+          CNC_MOTION_CALIBRATION.turretIndexStepRadians,
+        )
+        gsap.killTweensOf(target.rotation)
+        gsap.killTweensOf(target.quaternion)
+        gsap.to(target.quaternion, {
+          ...createLocalAxisQuaternionTween(
+            target,
+            targetQuaternion,
+            CNC_MOTION_CALIBRATION.rotationDuration,
+            invalidate,
+            () => settle(true),
+          ),
+          onInterrupt: () => settle(false),
+        })
+      }),
+    [homeTransforms.turretIndex, invalidate, nodes.turretIndex],
+  )
+
+  const operatorApproachCut = useCallback(
+    () =>
+      animateOperatorPosition(
+        nodes.turretCarriage,
+        homeTransforms.turretCarriage,
+        CNC_MACHINING.turret.machiningOffsets,
+      ),
+    [animateOperatorPosition, homeTransforms.turretCarriage, nodes.turretCarriage],
+  )
+
+  const operatorReturnTurretHome = useCallback(async () => {
+    const returnedX = await animateOperatorPosition(
+      nodes.turretCarriage,
+      homeTransforms.turretCarriage,
+      { z: CNC_MACHINING.turret.machiningOffsets.z },
+      CNC_MACHINING.turret.homeReturnDuration / 2,
+    )
+    if (!returnedX) return false
+    return animateOperatorPosition(
+      nodes.turretCarriage,
+      homeTransforms.turretCarriage,
+      {},
+      CNC_MACHINING.turret.homeReturnDuration / 2,
+    )
+  }, [animateOperatorPosition, homeTransforms.turretCarriage, nodes.turretCarriage])
+
   const addDoorToTimeline = useCallback(
     (timeline: gsap.core.Timeline, at: number, duration: number) => {
       const target = nodes.door
@@ -810,6 +967,13 @@ export function useCncMotionCalibration({
       setDoorOpen,
       resetDoor,
       resetAllAssemblies,
+      operatorOpenDoor,
+      operatorStartSpindle,
+      operatorEngageTailstock,
+      operatorIndexTool,
+      operatorApproachCut,
+      operatorReturnTurretHome,
+      getChuckVisualRpm,
       killAllMotion,
       restoreAllImmediate,
       getMotionSnapshot,
@@ -823,10 +987,17 @@ export function useCncMotionCalibration({
       addTailstockToTimeline,
       addTurretCarriageToTimeline,
       addTurretIndexToTimeline,
+      getChuckVisualRpm,
       getMotionSnapshot,
       killAllMotion,
       pauseChuck,
       resetAllAssemblies,
+      operatorApproachCut,
+      operatorEngageTailstock,
+      operatorIndexTool,
+      operatorOpenDoor,
+      operatorReturnTurretHome,
+      operatorStartSpindle,
       resetDoor,
       resetTailstock,
       resetTurretCarriage,

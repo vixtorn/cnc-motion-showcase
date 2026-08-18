@@ -26,6 +26,48 @@ export const INITIAL_CNC_SEQUENCE_TELEMETRY: CncSequenceTelemetry = {
   workpieceState: 'raw',
 }
 
+export type CncOperatorState =
+  | 'inactive'
+  | 'preparing'
+  | 'ready'
+  | 'starting-spindle'
+  | 'spindle-running'
+  | 'engaging-tailstock'
+  | 'tailstock-engaged'
+  | 'indexing-tool'
+  | 'tool-indexed'
+  | 'approaching-cut'
+  | 'cut-position'
+  | 'starting-coolant'
+  | 'coolant-active'
+  | 'completing-pass'
+  | 'cycle-complete'
+  | 'resetting'
+  | 'exiting'
+
+export type CncOperatorAction =
+  | 'start-spindle'
+  | 'engage-tailstock'
+  | 'index-tool'
+  | 'approach-cut'
+  | 'start-coolant'
+  | 'complete-pass'
+
+export interface CncOperatorTelemetry {
+  spindleVisualRpm: number
+  tailstock: 'home' | 'moving' | 'engaged'
+  turret:
+    | 'home'
+    | 'indexing'
+    | 'indexed'
+    | 'approaching'
+    | 'cut-position'
+    | 'returning'
+    | 'carriage-home'
+  coolantActive: boolean
+  workpieceState: CncWorkpieceState
+}
+
 export interface HomeTransform {
   readonly position: Vector3
   readonly rotation: Euler

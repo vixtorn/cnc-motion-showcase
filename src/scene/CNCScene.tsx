@@ -60,6 +60,16 @@ export interface CNCSceneHandle {
   setSequenceProgress: (progress: number) => void
   getSequenceProgress: () => number
   getSequenceDuration: () => number
+  enterOperatorMode: () => Promise<boolean>
+  exitOperatorMode: () => Promise<boolean>
+  operatorStartSpindle: () => Promise<boolean>
+  operatorEngageTailstock: () => Promise<boolean>
+  operatorIndexTool: () => Promise<boolean>
+  operatorApproachCut: () => Promise<boolean>
+  operatorStartCoolant: () => Promise<boolean>
+  operatorCompletePass: () => Promise<boolean>
+  operatorReset: () => Promise<boolean>
+  getOperatorSpindleVisualRpm: () => number
 }
 
 interface CNCSceneProps {
@@ -69,6 +79,7 @@ interface CNCSceneProps {
   onSequenceTelemetryChange: (telemetry: CncSequenceTelemetry) => void
   cameraSpeedMultiplier: number
   scrollModeActive: boolean
+  operatorModeActive: boolean
 }
 
 export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCScene(
@@ -79,6 +90,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     onSequenceTelemetryChange,
     cameraSpeedMultiplier,
     scrollModeActive,
+    operatorModeActive,
   },
   ref,
 ) {
@@ -158,6 +170,79 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
       setSequenceProgress: choreography.setSequenceProgress,
       getSequenceProgress: choreography.getSequenceProgress,
       getSequenceDuration: choreography.getSequenceDuration,
+      enterOperatorMode: async () => {
+        choreography.pauseSequence()
+        cameraRigRef.current?.cancelTransition()
+        cameraRigRef.current?.setManualControlsEnabled(false)
+        coolantRef.current?.resetCoolant()
+        sparkRef.current?.resetSparks()
+        const model = modelRef.current
+        model?.restoreAllImmediate()
+        cameraRigRef.current?.goToInterior({
+          duration: 0,
+          lockControls: true,
+          releaseControls: false,
+        })
+        const completed = (await model?.operatorOpenDoor()) ?? false
+        if (completed && import.meta.env.DEV) {
+          console.info(
+            `[CNC] Operator ready endpoint ${JSON.stringify(model?.getMotionSnapshot() ?? null)}`,
+          )
+        }
+        return completed
+      },
+      exitOperatorMode: async () => {
+        coolantRef.current?.resetCoolant()
+        sparkRef.current?.resetSparks()
+        modelRef.current?.restoreAllImmediate()
+        cameraRigRef.current?.cancelTransition()
+        choreography.setSequenceProgress(1)
+        return true
+      },
+      operatorStartSpindle: async () =>
+        (await modelRef.current?.operatorStartSpindle()) ?? false,
+      operatorEngageTailstock: async () =>
+        (await modelRef.current?.operatorEngageTailstock()) ?? false,
+      operatorIndexTool: async () =>
+        (await modelRef.current?.operatorIndexTool()) ?? false,
+      operatorApproachCut: async () =>
+        (await modelRef.current?.operatorApproachCut()) ?? false,
+      operatorStartCoolant: async () => {
+        const coolant = coolantRef.current
+        if (!coolant) return false
+        coolant.startCoolant()
+        coolant.setCoolantIntensity(1)
+        return true
+      },
+      operatorCompletePass: async () => {
+        const model = modelRef.current
+        if (!model) return false
+        model.revealFinishedImmediate()
+        coolantRef.current?.stopCoolant()
+        model.stopChuck(false)
+        const completed = await model.operatorReturnTurretHome()
+        if (completed && import.meta.env.DEV) {
+          console.info(
+            `[CNC] Operator cycle endpoint ${JSON.stringify(model.getMotionSnapshot())}`,
+          )
+        }
+        return completed
+      },
+      operatorReset: async () => {
+        coolantRef.current?.resetCoolant()
+        sparkRef.current?.resetSparks()
+        const model = modelRef.current
+        model?.restoreAllImmediate()
+        const completed = (await model?.operatorOpenDoor()) ?? false
+        if (completed && import.meta.env.DEV) {
+          console.info(
+            `[CNC] Operator reset endpoint ${JSON.stringify(model?.getMotionSnapshot() ?? null)}`,
+          )
+        }
+        return completed
+      },
+      getOperatorSpindleVisualRpm: () =>
+        modelRef.current?.getChuckVisualRpm() ?? 0,
     }),
     [choreography],
   )
@@ -200,7 +285,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
         interiorBounds={inspection?.interiorBounds ?? null}
         finishedWorkpieceBounds={inspection?.finishedWorkpieceBounds ?? null}
         cameraSpeedMultiplier={cameraSpeedMultiplier}
-        manualControlsLocked={scrollModeActive}
+        manualControlsLocked={scrollModeActive || operatorModeActive}
       />
       <CoolantEffect ref={coolantRef} />
       {import.meta.env.DEV ? (

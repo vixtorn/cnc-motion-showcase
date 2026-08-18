@@ -7,12 +7,15 @@ import { CinematicNarrative } from './components/CinematicNarrative'
 import { DevPanel } from './components/DevPanel'
 import { LoadingScreen } from './components/LoadingScreen'
 import { ModelErrorBoundary } from './components/ModelErrorBoundary'
+import { OperatorPanel } from './components/OperatorPanel'
 import { PostCinematicIntro } from './components/PostCinematicIntro'
+import { RunTheMachine } from './components/RunTheMachine'
 import {
   CNC_SCROLL,
   useCncScrollDriver,
   type CncScrollDiagnostics,
 } from './hooks/useCncScrollDriver'
+import { useCncOperatorMode } from './hooks/useCncOperatorMode'
 import { CNCScene, type CNCSceneHandle } from './scene/CNCScene'
 import type {
   CalibrationDirection,
@@ -40,6 +43,7 @@ function App() {
   const [cameraSpeedMultiplier, setCameraSpeedMultiplier] = useState<number>(
     CNC_CHOREOGRAPHY.cameraSpeed.defaultMultiplier,
   )
+  const operator = useCncOperatorMode({ sceneRef })
 
   const handleInspection = useCallback((nextInspection: CncInspection) => {
     setInspection(nextInspection)
@@ -73,7 +77,7 @@ function App() {
 
   useCncScrollDriver({
     containerRef: cinematicScrollRef,
-    enabled: Boolean(inspection) && scrollDriverEnabled,
+    enabled: Boolean(inspection) && scrollDriverEnabled && !operator.isActive,
     onProgress: handleScrollProgress,
     onDiagnostics: setScrollDiagnostics,
   })
@@ -90,7 +94,9 @@ function App() {
         style={cinematicScrollStyle}
         aria-label="Scroll-driven CNC cinematic"
       >
-        <div className="cinematic-stage">
+        <div
+          className={`cinematic-stage${operator.isActive ? ' is-operator-active' : ''}`}
+        >
           <section className="viewport" aria-label="Interactive CNC model">
             <ModelErrorBoundary>
               <CNCScene
@@ -100,7 +106,8 @@ function App() {
                 onSequenceProgressChange={setSequenceProgress}
                 onSequenceTelemetryChange={setSequenceTelemetry}
                 cameraSpeedMultiplier={cameraSpeedMultiplier}
-                scrollModeActive={scrollDriverEnabled}
+                scrollModeActive={scrollDriverEnabled && !operator.isActive}
+                operatorModeActive={operator.isActive}
               />
             </ModelErrorBoundary>
             <LoadingScreen />
@@ -112,7 +119,22 @@ function App() {
             telemetry={sequenceTelemetry}
           />
 
-          {import.meta.env.DEV ? (
+          {operator.isActive ? (
+            <OperatorPanel
+              state={operator.state}
+              telemetry={operator.telemetry}
+              onStartSpindle={operator.startSpindle}
+              onEngageTailstock={operator.engageTailstock}
+              onIndexTool={operator.indexTool}
+              onApproachCut={operator.approachCut}
+              onStartCoolant={operator.startCoolant}
+              onCompletePass={operator.completePass}
+              onReset={operator.reset}
+              onExit={operator.exit}
+            />
+          ) : null}
+
+          {import.meta.env.DEV && !operator.isActive ? (
             <DevPanel
               inspection={inspection}
               isChuckTesting={isChuckTesting}
@@ -182,6 +204,7 @@ function App() {
       </section>
 
       <PostCinematicIntro />
+      <RunTheMachine ready={Boolean(inspection)} onEnter={operator.enter} />
     </main>
   )
 }
