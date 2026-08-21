@@ -13,6 +13,7 @@ export type CncProcessPlaygroundId = 'tailstock' | 'turret'
 interface ProcessPlaygroundInteractionLayerProps {
   inspection: CncInspection
   enabled: boolean
+  interactiveIds: ReadonlySet<CncProcessPlaygroundId>
   selectedIds: ReadonlySet<CncProcessPlaygroundId>
   hoveredId: CncProcessPlaygroundId | null
   onHoverChange: (id: CncProcessPlaygroundId | null) => void
@@ -39,6 +40,7 @@ const getOutlineState = (
 export function ProcessPlaygroundInteractionLayer({
   inspection,
   enabled,
+  interactiveIds,
   selectedIds,
   hoveredId,
   onHoverChange,
@@ -50,11 +52,12 @@ export function ProcessPlaygroundInteractionLayer({
   const raycaster = useMemo(() => new Raycaster(), [])
   const pointer = useMemo(() => new Vector2(), [])
   const components = useMemo(
-    () => [
-      { id: 'tailstock' as const, meshes: getMeshes(inspection.nodes.tailstock) },
-      { id: 'turret' as const, meshes: getMeshes(inspection.nodes.turretCarriage) },
-    ],
-    [inspection],
+    () =>
+      [
+        { id: 'tailstock' as const, meshes: getMeshes(inspection.nodes.tailstock) },
+        { id: 'turret' as const, meshes: getMeshes(inspection.nodes.turretCarriage) },
+      ].filter(({ id }) => interactiveIds.has(id)),
+    [inspection, interactiveIds],
   )
   const meshToComponent = useMemo(() => {
     const map = new Map<Mesh, CncProcessPlaygroundId>()

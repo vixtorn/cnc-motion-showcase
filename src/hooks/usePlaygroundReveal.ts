@@ -29,8 +29,10 @@ export function usePlaygroundReveal({
       const viewportHeight = Math.max(window.innerHeight, 1)
       const bounds = section.getBoundingClientRect()
       const revealDistance = viewportHeight * 0.62
-      const reveal = clamp01((viewportHeight - bounds.top) / revealDistance)
-      const presenting = bounds.top < viewportHeight && bounds.bottom > viewportHeight * 0.35
+      const entryReveal = clamp01((viewportHeight - bounds.top) / revealDistance)
+      const exitReveal = clamp01((bounds.bottom - viewportHeight) / revealDistance)
+      const reveal = Math.min(entryReveal, exitReveal)
+      const presenting = reveal > 0
       const canInteract = presenting && reveal >= 0.75
 
       section.style.setProperty('--playground-reveal', reveal.toFixed(4))

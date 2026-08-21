@@ -676,7 +676,7 @@
 .process-playground {
   position: relative;
   z-index: 0;
-  min-height: 116svh;
+  min-height: 178svh;
   background: #ece9e1;
   color: #20231f;
 }
@@ -720,8 +720,7 @@
   text-transform: uppercase;
 }
 
-.process-playground__overlay header p,
-.process-playground__status p {
+.process-playground__overlay header p {
   color: rgba(32, 35, 31, 0.62);
   font-size: clamp(0.54rem, 0.7vw, 0.66rem);
   font-weight: 650;
@@ -732,33 +731,6 @@
   font-size: clamp(0.66rem, 0.84vw, 0.8rem);
   font-weight: 650;
   letter-spacing: 0.12em;
-}
-
-.process-playground__status {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.process-playground__status p {
-  color: rgba(32, 35, 31, 0.5);
-}
-
-.process-playground__status button {
-  border: 0;
-  border-bottom: 1px solid rgba(32, 35, 31, 0.44);
-  background: transparent;
-  color: rgba(32, 35, 31, 0.75);
-  font: 650 0.54rem/1.2 var(--font-mono);
-  letter-spacing: 0.12em;
-  cursor: pointer;
-  pointer-events: auto;
-}
-
-.process-playground__status button:hover,
-.process-playground__status button:focus-visible {
-  color: #b17832;
 }
 
 .comparison-workspace {
@@ -1773,7 +1745,7 @@
   }
 
   .process-playground {
-    min-height: 110svh;
+    min-height: 172svh;
   }
 
   .process-playground__overlay {
@@ -1784,12 +1756,6 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 0.35rem;
-  }
-
-  .process-playground__status {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.6rem;
   }
 
   .comparison-workspace__header {

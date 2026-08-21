@@ -111,6 +111,7 @@ interface CNCSceneProps {
   comparisonModeActive: boolean
   playgroundModeActive: boolean
   playgroundInteractionEnabled: boolean
+  playgroundInteractiveIds: ReadonlySet<CncProcessPlaygroundId>
   playgroundSelectedIds: ReadonlySet<CncProcessPlaygroundId>
   playgroundHoveredId: CncProcessPlaygroundId | null
   onPlaygroundHoverChange: (id: CncProcessPlaygroundId | null) => void
@@ -132,6 +133,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     comparisonModeActive,
     playgroundModeActive,
     playgroundInteractionEnabled,
+    playgroundInteractiveIds,
     playgroundSelectedIds,
     playgroundHoveredId,
     onPlaygroundHoverChange,
@@ -364,11 +366,17 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
 
         return new Promise<boolean>((resolve) => {
           const reveal = { occlusion: 0.45 }
+          let mistSettled = false
+          let turretReturnComplete: boolean | null = null
           const settle = (completed: boolean) => {
             if (playgroundTransitionResolveRef.current !== settle) return
             playgroundTransitionRef.current = null
             playgroundTransitionResolveRef.current = null
             resolve(completed)
+          }
+          const settleWhenReady = () => {
+            if (!mistSettled || turretReturnComplete === null) return
+            settle(turretReturnComplete)
           }
 
           playgroundTransitionResolveRef.current = settle
@@ -381,7 +389,13 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
               ease: 'power1.out',
               onUpdate: () => coolantRef.current?.setRevealOcclusion(reveal.occlusion),
             })
-            .call(() => model.revealFinishedImmediate())
+            .call(() => {
+              model.revealFinishedImmediate()
+              void model.operatorReturnTurretHome().then((completed) => {
+                turretReturnComplete = completed
+                settleWhenReady()
+              })
+            })
             .to(reveal, {
               occlusion: 0.18,
               duration: 1,
@@ -390,7 +404,8 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
             })
             .call(() => {
               coolantRef.current?.setCoolantIntensity(0.4)
-              settle(true)
+              mistSettled = true
+              settleWhenReady()
             })
         })
       },
@@ -542,6 +557,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
         <ProcessPlaygroundInteractionLayer
           inspection={inspection}
           enabled={playgroundInteractionEnabled}
+          interactiveIds={playgroundInteractiveIds}
           selectedIds={playgroundSelectedIds}
           hoveredId={playgroundHoveredId}
           onHoverChange={onPlaygroundHoverChange}

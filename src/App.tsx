@@ -340,6 +340,7 @@ function App() {
                   playgroundReveal.interactionEnabled &&
                   !playground.isComplete
                 }
+                playgroundInteractiveIds={playground.interactiveIds}
                 playgroundSelectedIds={playground.selectedIds}
                 playgroundHoveredId={playground.hoveredId}
                 onPlaygroundHoverChange={playground.setHoveredId}
@@ -475,9 +476,6 @@ function App() {
       <ProcessPlayground
         sectionRef={playgroundSectionRef}
         isActive={playgroundModeActive}
-        interactionEnabled={playgroundModeActive && playgroundReveal.interactionEnabled}
-        status={playground.status}
-        onReset={playground.reset}
       />
       <MachineAnatomy
         ready={Boolean(inspection) && experienceMode === 'content'}

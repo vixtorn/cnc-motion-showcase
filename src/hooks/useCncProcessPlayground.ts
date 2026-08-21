@@ -95,6 +95,7 @@ export function useCncProcessPlayground({
       const completed = await scene.processPlaygroundActivateTurret()
       turretInFlightRef.current = false
       if (!completed) return
+      setHoveredId(null)
       setState((current) => ({
         ...current,
         turretActivated: true,
@@ -145,6 +146,12 @@ export function useCncProcessPlayground({
     return ids
   }, [state.processComplete, state.tailstockEngaged, state.turretActivated])
 
+  const interactiveIds = useMemo<ReadonlySet<CncProcessPlaygroundId>>(() => {
+    const ids = new Set<CncProcessPlaygroundId>(['tailstock', 'turret'])
+    if (state.turretActivated || state.processComplete) ids.delete('turret')
+    return ids
+  }, [state.processComplete, state.turretActivated])
+
   const status =
     state.processComplete
       ? 'Process complete'
@@ -159,6 +166,7 @@ export function useCncProcessPlayground({
   return {
     isComplete: state.processComplete,
     hoveredId,
+    interactiveIds,
     selectedIds,
     status,
     reset,
