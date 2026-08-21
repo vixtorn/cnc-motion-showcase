@@ -1,6 +1,7 @@
 export function PostCinematicIntro() {
   return (
     <section
+      id="system"
       className="project-introduction"
       aria-labelledby="project-introduction-title"
     >

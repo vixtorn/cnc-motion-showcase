@@ -7,7 +7,7 @@ const OPERATOR_SYSTEMS = ['SPINDLE', 'TAILSTOCK', 'TURRET', 'COOLANT'] as const
 
 export function RunTheMachine({ ready, onEnter }: RunTheMachineProps) {
   return (
-    <section className="run-machine" aria-labelledby="run-machine-title">
+    <section id="operator" className="run-machine" aria-labelledby="run-machine-title">
       <div className="run-machine__frame">
         <header className="run-machine__header">
           <p>03 / OPERATOR MODE</p>

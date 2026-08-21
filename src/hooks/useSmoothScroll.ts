@@ -12,6 +12,10 @@ export interface SmoothScrollController {
   isActive: boolean
   isReducedMotion: boolean
   scrollToImmediate: (top: number) => void
+  scrollToElement: (
+    element: HTMLElement,
+    options?: { offset?: number; immediate?: boolean },
+  ) => void
 }
 
 /**
@@ -80,9 +84,27 @@ export function useSmoothScroll({
     window.scrollTo({ top, behavior: 'auto' })
   }, [])
 
+  const scrollToElement = useCallback(
+    (
+      element: HTMLElement,
+      { offset = 0, immediate = false }: { offset?: number; immediate?: boolean } = {},
+    ) => {
+      const lenis = lenisRef.current
+      if (lenis && !isReducedMotion) {
+        lenis.scrollTo(element, { offset, immediate, force: true })
+        return
+      }
+
+      const top = Math.max(0, window.scrollY + element.getBoundingClientRect().top + offset)
+      window.scrollTo({ top, behavior: 'auto' })
+    },
+    [isReducedMotion],
+  )
+
   return {
     isActive: enabled && !isReducedMotion && !suspended,
     isReducedMotion,
     scrollToImmediate,
+    scrollToElement,
   }
 }

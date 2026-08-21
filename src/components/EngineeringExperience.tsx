@@ -10,18 +10,51 @@ const stack = [
   'VITE',
 ]
 
+import { useEffect, useState } from 'react'
+
 const engineeringIndex = [
-  ['01', 'ASSET'],
-  ['02', 'TIMELINE'],
-  ['03', 'SCROLL'],
-  ['04', 'STATE'],
-  ['05', 'EFFECTS'],
-  ['06', 'INTERACTION'],
+  { number: '01', label: 'ASSET', id: 'engineering-asset' },
+  { number: '02', label: 'TIMELINE', id: 'engineering-timeline' },
+  { number: '03', label: 'SCROLL', id: 'engineering-scroll' },
+  { number: '04', label: 'STATE', id: 'engineering-state' },
+  { number: '05', label: 'EFFECTS', id: 'engineering-effects' },
+  { number: '06', label: 'INTERACTION', id: 'engineering-interaction' },
 ]
 
 export function EngineeringExperience() {
+  const [activeTopicId, setActiveTopicId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const topics = engineeringIndex
+      .map((topic) => document.getElementById(topic.id))
+      .filter((topic): topic is HTMLElement => Boolean(topic))
+    if (!topics.length) return
+
+    const resolveActiveTopic = () => {
+      const readingLine = window.innerHeight * 0.36
+      const containingTopic = topics.find((topic) => {
+        const { top, bottom } = topic.getBoundingClientRect()
+        return top <= readingLine && bottom >= readingLine
+      })
+      const upcomingTopic = topics.find(
+        (topic) => topic.getBoundingClientRect().top > readingLine,
+      )
+      const nextId = containingTopic?.id ?? upcomingTopic?.id ?? topics.at(-1)?.id ?? null
+      setActiveTopicId((currentId) => (currentId === nextId ? currentId : nextId))
+    }
+
+    const observer = new IntersectionObserver(resolveActiveTopic, {
+      rootMargin: '-30% 0px -55% 0px',
+      threshold: 0,
+    })
+
+    topics.forEach((topic) => observer.observe(topic))
+    resolveActiveTopic()
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <section className="engineering-experience" aria-labelledby="engineering-title">
+    <section id="engineering" className="engineering-experience" aria-labelledby="engineering-title">
       <div className="engineering-experience__frame">
         <header className="engineering-experience__header">
           <p>06 / ENGINEERING</p>
@@ -31,10 +64,15 @@ export function EngineeringExperience() {
         <div className="engineering-experience__layout">
           <nav className="engineering-index" aria-label="Engineering topics">
             <p>CASE STUDY INDEX</p>
-            {engineeringIndex.map(([number, label]) => (
-              <a key={number} href={`#engineering-${number}`}>
-                <span>{number}</span>
-                {label}
+            {engineeringIndex.map((topic) => (
+              <a
+                key={topic.id}
+                href={`#${topic.id}`}
+                className={activeTopicId === topic.id ? 'is-active' : undefined}
+                aria-current={activeTopicId === topic.id ? 'location' : undefined}
+              >
+                <span>{topic.number}</span>
+                {topic.label}
               </a>
             ))}
           </nav>
@@ -67,7 +105,7 @@ export function EngineeringExperience() {
               <div><dt>TURRET INDEX</dt><dd>30°</dd></div>
             </dl>
 
-            <article className="engineering-topic engineering-topic--asset" id="engineering-01">
+            <article className="engineering-topic engineering-topic--asset" id="engineering-asset">
               <div className="engineering-topic__heading">
                 <p>01 / ASSET ARCHITECTURE</p>
                 <h3>Movement starts in the hierarchy.</h3>
@@ -99,7 +137,7 @@ export function EngineeringExperience() {
               </div>
             </article>
 
-            <article className="engineering-topic engineering-topic--timeline" id="engineering-02">
+            <article className="engineering-topic engineering-topic--timeline" id="engineering-timeline">
               <div className="engineering-topic__heading">
                 <p>02 / CANONICAL TIMELINE</p>
                 <h3>One sequence time, many ways to reach it.</h3>
@@ -125,7 +163,7 @@ export function EngineeringExperience() {
               </div>
             </article>
 
-            <article className="engineering-topic engineering-topic--scroll" id="engineering-03">
+            <article className="engineering-topic engineering-topic--scroll" id="engineering-scroll">
               <div className="engineering-topic__heading">
                 <p>03 / SCROLL SYSTEM</p>
                 <h3>Document geometry sets the destination.</h3>
@@ -152,7 +190,7 @@ applyProgress(currentProgress + difference * alpha)`}</code></pre>
               </div>
             </article>
 
-            <article className="engineering-topic engineering-topic--state" id="engineering-04">
+            <article className="engineering-topic engineering-topic--state" id="engineering-state">
               <div className="engineering-topic__heading">
                 <p>04 / MACHINE STATE</p>
                 <h3>One scene, with explicit ownership.</h3>
@@ -174,7 +212,7 @@ applyProgress(currentProgress + difference * alpha)`}</code></pre>
               </div>
             </article>
 
-            <article className="engineering-topic engineering-topic--effects" id="engineering-05">
+            <article className="engineering-topic engineering-topic--effects" id="engineering-effects">
               <div className="engineering-topic__heading">
                 <p>05 / PROCEDURAL EFFECTS</p>
                 <h3>Effects describe the process without simulating the factory.</h3>
@@ -206,7 +244,7 @@ setSequenceState(clampedProgress === 1 ? 'complete' : 'paused')`}</code></pre>
               </div>
             </article>
 
-            <article className="engineering-topic engineering-topic--workpiece" id="engineering-06">
+            <article className="engineering-topic engineering-topic--workpiece" id="engineering-interaction">
               <div className="engineering-topic__heading">
                 <p>06 / MULTI-MODE INTERACTION</p>
                 <h3>Two geometry states, one controlled reveal.</h3>

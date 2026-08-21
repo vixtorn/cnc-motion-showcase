@@ -5,7 +5,7 @@ interface StockToFinishedProps {
 
 export function StockToFinished({ ready, onEnter }: StockToFinishedProps) {
   return (
-    <section className="stock-finished" aria-labelledby="stock-finished-title">
+    <section id="process" className="stock-finished" aria-labelledby="stock-finished-title">
       <div className="stock-finished__frame">
         <header className="stock-finished__header">
           <p>04 / PROCESS</p>

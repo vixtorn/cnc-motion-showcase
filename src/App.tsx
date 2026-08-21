@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import './App.css'
 import type { CncAxis } from './animation/cncAnimationConfig'
 import { CNC_CHOREOGRAPHY } from './animation/cncChoreographyConfig'
+import {
+  SITE_NAVIGATION_HEIGHT_PX,
+  type SiteSectionId,
+} from './config/siteSections'
 import { CinematicHero } from './components/CinematicHero'
 import { CinematicNarrative } from './components/CinematicNarrative'
 import { DevPanel } from './components/DevPanel'
@@ -14,6 +18,8 @@ import { OperatorPanel } from './components/OperatorPanel'
 import { PostCinematicIntro } from './components/PostCinematicIntro'
 import { ProcessComparisonPanel } from './components/ProcessComparisonPanel'
 import { RunTheMachine } from './components/RunTheMachine'
+import { SiteFooter } from './components/SiteFooter'
+import { SiteNavigation } from './components/SiteNavigation'
 import { StockToFinished } from './components/StockToFinished'
 import {
   CNC_SCROLL,
@@ -25,6 +31,7 @@ import { useCncOperatorMode } from './hooks/useCncOperatorMode'
 import { useCncAnatomyMode } from './hooks/useCncAnatomyMode'
 import { useCncProcessComparison } from './hooks/useCncProcessComparison'
 import { useSmoothScroll } from './hooks/useSmoothScroll'
+import { useActiveSiteSection } from './hooks/useActiveSiteSection'
 import { CNCScene, type CNCSceneHandle } from './scene/CNCScene'
 import type {
   CalibrationDirection,
@@ -85,6 +92,56 @@ function App() {
     enabled: smoothScrollEnabled,
     suspended: experienceMode !== 'content',
   })
+  const activeSiteSection = useActiveSiteSection()
+
+  const navigateToHashTarget = useCallback(
+    (hash: string, immediate = false) => {
+      const aliases: Record<string, string> = {
+        'engineering-01': 'engineering-asset',
+        'engineering-02': 'engineering-timeline',
+        'engineering-03': 'engineering-scroll',
+        'engineering-04': 'engineering-state',
+        'engineering-05': 'engineering-effects',
+        'engineering-06': 'engineering-interaction',
+      }
+      const targetId = aliases[hash] ?? hash
+      const target = document.getElementById(targetId)
+      if (!target) return
+      smoothScroll.scrollToElement(target, {
+        immediate,
+        offset: -SITE_NAVIGATION_HEIGHT_PX,
+      })
+    },
+    [smoothScroll],
+  )
+
+  const handleSiteNavigation = useCallback(
+    (id: SiteSectionId) => {
+      if (window.location.hash !== `#${id}`) {
+        window.history.pushState(null, '', `#${id}`)
+      }
+      navigateToHashTarget(id)
+    },
+    [navigateToHashTarget],
+  )
+
+  useEffect(() => {
+    const handleHistoryNavigation = () => {
+      navigateToHashTarget(window.location.hash.slice(1), true)
+    }
+    const initialHash = window.location.hash.slice(1)
+    let frame: number | null = null
+    if (initialHash) {
+      frame = window.requestAnimationFrame(handleHistoryNavigation)
+    }
+    window.addEventListener('popstate', handleHistoryNavigation)
+    window.addEventListener('hashchange', handleHistoryNavigation)
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      window.removeEventListener('popstate', handleHistoryNavigation)
+      window.removeEventListener('hashchange', handleHistoryNavigation)
+    }
+  }, [navigateToHashTarget])
 
   useEffect(
     () => () => {
@@ -178,14 +235,20 @@ function App() {
 
   const cinematicScrollStyle = {
     '--cinematic-scroll-height': `${getCinematicViewportHeights(scrollPacing) * 100}svh`,
-  } as CSSProperties
+    '--site-nav-height': `${SITE_NAVIGATION_HEIGHT_PX}px`,
+  } as CSSProperties & { '--site-nav-height': string }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" style={cinematicScrollStyle}>
+      <SiteNavigation
+        activeSectionId={activeSiteSection}
+        visible={experienceMode === 'content' && activeSiteSection !== 'cycle'}
+        onNavigate={handleSiteNavigation}
+      />
       <section
         ref={cinematicScrollRef}
+        id="cycle"
         className="cinematic-scroll"
-        style={cinematicScrollStyle}
         aria-label="Scroll-driven CNC cinematic"
       >
         <div
@@ -346,6 +409,7 @@ function App() {
         onEnter={anatomy.enter}
       />
       <EngineeringExperience />
+      <SiteFooter onBackToTop={() => handleSiteNavigation('cycle')} />
     </main>
   )
 }

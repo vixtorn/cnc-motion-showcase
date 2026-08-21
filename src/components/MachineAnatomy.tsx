@@ -7,7 +7,7 @@ interface MachineAnatomyProps {
 
 export function MachineAnatomy({ ready, onEnter }: MachineAnatomyProps) {
   return (
-    <section className="machine-anatomy" aria-labelledby="machine-anatomy-title">
+    <section id="anatomy" className="machine-anatomy" aria-labelledby="machine-anatomy-title">
       <div className="machine-anatomy__frame">
         <header className="machine-anatomy__header">
           <p>05 / MACHINE ANATOMY</p>
