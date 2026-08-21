@@ -6,7 +6,9 @@ export type CncSequenceState = 'idle' | 'playing' | 'paused' | 'complete'
 
 export type CncWorkpieceState = 'raw' | 'finished'
 
-export type CncExperienceMode = 'content' | 'operator' | 'process-comparison'
+export type CncExperienceMode = 'content' | 'operator' | 'process-comparison' | 'anatomy'
+
+export type CncAnatomyComponentId = 'chuck' | 'turret' | 'tailstock' | 'workpiece' | 'door'
 
 export type CncProcessComparisonState =
   | 'inactive'

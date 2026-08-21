@@ -21,7 +21,8 @@
 }
 
 .cinematic-stage.is-operator-active,
-.cinematic-stage.is-comparison-active {
+.cinematic-stage.is-comparison-active,
+.cinematic-stage.is-anatomy-active {
   position: fixed;
   z-index: 100;
   inset: 0;
@@ -31,7 +32,8 @@
 }
 
 .cinematic-stage.is-operator-active .scene-canvas,
-.cinematic-stage.is-comparison-active .scene-canvas {
+.cinematic-stage.is-comparison-active .scene-canvas,
+.cinematic-stage.is-anatomy-active .scene-canvas {
   touch-action: none !important;
 }
 
@@ -1667,4 +1669,398 @@
     transition-duration: 0.01ms;
   }
 
+}
+
+/* Phase 4C: normal machine-anatomy section and single-canvas inspection overlay. */
+.machine-anatomy {
+  position: relative;
+  min-height: 108svh;
+  border-top: 1px solid rgba(32, 35, 31, 0.16);
+  background: #d9d8d2;
+  color: #20231f;
+}
+
+.machine-anatomy__frame {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100svh;
+  box-sizing: border-box;
+  padding: clamp(1.5rem, 3vw, 3rem) clamp(1.5rem, 4vw, 4.5rem)
+    clamp(2.2rem, 5vw, 5rem);
+}
+
+.machine-anatomy__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  font: 650 clamp(0.58rem, 0.7vw, 0.68rem)/1.3 var(--font-mono);
+  letter-spacing: 0.14em;
+}
+
+.machine-anatomy__header p,
+.machine-anatomy__body h2,
+.machine-anatomy__body p {
+  margin: 0;
+}
+
+.machine-anatomy__header p:last-child {
+  color: #71736c;
+}
+
+.machine-anatomy__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(13rem, 0.45fr) minmax(13rem, 0.36fr);
+  gap: clamp(2rem, 5vw, 6rem);
+  align-items: center;
+  align-self: center;
+  padding: clamp(4rem, 11vh, 8rem) 0;
+}
+
+.machine-anatomy__body h2 {
+  font-size: clamp(4rem, 8.8vw, 9.5rem);
+  font-weight: 445;
+  letter-spacing: -0.07em;
+  line-height: 0.8;
+  text-transform: uppercase;
+}
+
+.machine-anatomy__body h2 span {
+  display: block;
+}
+
+.machine-anatomy__body > div:first-child > p {
+  max-width: 28rem;
+  margin-top: 2rem;
+  color: #50534d;
+  font-size: clamp(0.9rem, 1.1vw, 1.05rem);
+  line-height: 1.55;
+}
+
+.machine-anatomy__systems {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.9rem 0;
+  border-top: 1px solid rgba(32, 35, 31, 0.22);
+  border-bottom: 1px solid rgba(32, 35, 31, 0.22);
+  color: #5c5f57;
+  font: 650 0.56rem/1.35 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.machine-anatomy__action button,
+.anatomy-workspace button {
+  border: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  cursor: pointer;
+}
+
+.machine-anatomy__action button {
+  width: 100%;
+  min-height: 3.2rem;
+  padding: 0.8rem 1rem;
+  font-size: 0.64rem;
+}
+
+.machine-anatomy__action button:hover:not(:disabled),
+.machine-anatomy__action button:focus-visible {
+  background: #252824;
+  color: #f1efe9;
+}
+
+.machine-anatomy__action button:disabled {
+  cursor: wait;
+  opacity: 0.42;
+}
+
+.anatomy-workspace {
+  position: absolute;
+  z-index: 26;
+  inset: 0;
+  color: #f2efe7;
+  pointer-events: none;
+}
+
+.cinematic-stage.is-anatomy-active .cinematic-hero,
+.cinematic-stage.is-anatomy-active .cinematic-narrative {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.anatomy-workspace__header {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: clamp(1.25rem, 2.5vw, 2.4rem) clamp(1.25rem, 3.2vw, 3rem);
+  background: linear-gradient(to bottom, rgba(25, 27, 24, 0.72), transparent);
+}
+
+.anatomy-workspace__header p,
+.anatomy-workspace__header h2,
+.anatomy-index p,
+.anatomy-info p,
+.anatomy-info h3,
+.anatomy-info dl {
+  margin: 0;
+}
+
+.anatomy-workspace__header p,
+.anatomy-index p,
+.anatomy-info > p:first-child {
+  color: rgba(242, 239, 231, 0.6);
+  font: 650 0.55rem/1.2 var(--font-mono);
+  letter-spacing: 0.14em;
+}
+
+.anatomy-workspace__header h2 {
+  margin-top: 0.45rem;
+  font-size: clamp(1.2rem, 2.4vw, 2.4rem);
+  font-weight: 470;
+  letter-spacing: -0.035em;
+}
+
+.anatomy-workspace__header h2 span {
+  color: #c5a16c;
+}
+
+.anatomy-workspace__header button {
+  min-height: 2.4rem;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.56rem;
+  pointer-events: auto;
+}
+
+.anatomy-index,
+.anatomy-info {
+  position: absolute;
+  bottom: clamp(1.25rem, 3vw, 2.4rem);
+  width: min(17rem, calc(100vw - 2.5rem));
+  padding: 1rem;
+  border-top: 1px solid rgba(242, 239, 231, 0.34);
+  background: rgba(31, 34, 30, 0.93);
+  pointer-events: auto;
+}
+
+.anatomy-index {
+  left: clamp(1.25rem, 3vw, 2.4rem);
+  display: grid;
+  gap: 0.3rem;
+}
+
+.anatomy-index p {
+  margin-bottom: 0.4rem;
+}
+
+.anatomy-index button {
+  display: grid;
+  grid-template-columns: 1.7rem 1fr;
+  min-height: 2.2rem;
+  padding: 0.38rem 0.45rem;
+  border-width: 0 0 1px;
+  border-color: rgba(242, 239, 231, 0.16);
+  text-align: left;
+  font-size: 0.56rem;
+}
+
+.anatomy-index button span {
+  color: rgba(242, 239, 231, 0.48);
+}
+
+.anatomy-index button.is-selected,
+.anatomy-index button:hover,
+.anatomy-index button:focus-visible,
+.anatomy-info button:hover,
+.anatomy-info button:focus-visible,
+.anatomy-workspace__header button:hover,
+.anatomy-workspace__header button:focus-visible {
+  background: #f2efe7;
+  color: #252824;
+}
+
+.anatomy-info {
+  right: clamp(1.25rem, 3vw, 2.4rem);
+}
+
+.anatomy-info h3 {
+  margin-top: 0.45rem;
+  font-size: clamp(1.1rem, 1.8vw, 1.75rem);
+  font-weight: 470;
+  letter-spacing: -0.035em;
+  text-transform: uppercase;
+}
+
+.anatomy-info__description {
+  margin-top: 1rem !important;
+  color: rgba(242, 239, 231, 0.72);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.anatomy-info dl {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1rem;
+}
+
+.anatomy-info dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(242, 239, 231, 0.14);
+  font: 650 0.5rem/1.3 var(--font-mono);
+  letter-spacing: 0.09em;
+}
+
+.anatomy-info dt {
+  color: rgba(242, 239, 231, 0.48);
+}
+
+.anatomy-info dd {
+  margin: 0;
+  text-align: right;
+}
+
+.anatomy-info button {
+  width: 100%;
+  min-height: 2.3rem;
+  margin-top: 1.1rem;
+  font-size: 0.54rem;
+}
+
+.anatomy-hotspot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #252824;
+  font: 700 0.56rem/1 var(--font-mono);
+  cursor: pointer;
+}
+
+.anatomy-hotspot i {
+  display: block;
+  width: 0.78rem;
+  height: 0.78rem;
+  box-sizing: border-box;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: rgba(242, 239, 231, 0.78);
+}
+
+.anatomy-hotspot.is-selected,
+.anatomy-hotspot:hover,
+.anatomy-hotspot:focus-visible {
+  color: #b17832;
+}
+
+.anatomy-hotspot:focus-visible {
+  outline: 2px solid #f2efe7;
+  outline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+  .machine-anatomy__frame {
+    padding: 1.4rem 1.15rem 2.4rem;
+  }
+
+  .machine-anatomy__header p:last-child {
+    display: none;
+  }
+
+  .machine-anatomy__body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.4rem;
+    align-content: center;
+    align-items: start;
+    padding: 4rem 0;
+  }
+
+  .machine-anatomy__body h2 {
+    font-size: clamp(3.25rem, 15vw, 4.9rem);
+    line-height: 0.82;
+  }
+
+  .machine-anatomy__systems,
+  .machine-anatomy__action {
+    max-width: 21rem;
+  }
+
+  .anatomy-workspace__header {
+    padding: 1rem 1.15rem;
+  }
+
+  .anatomy-workspace__header h2 {
+    max-width: 12rem;
+    font-size: 1.05rem;
+  }
+
+  .anatomy-workspace__header button {
+    min-height: 2.2rem;
+    padding: 0.5rem 0.6rem;
+    font-size: 0.5rem;
+  }
+
+  .anatomy-index,
+  .anatomy-info {
+    right: 0;
+    left: 0;
+    width: auto;
+  }
+
+  .anatomy-index {
+    bottom: auto;
+    top: 4.8rem;
+    display: flex;
+    gap: 0.35rem;
+    overflow-x: auto;
+    padding: 0.55rem 1.15rem;
+    border-top: 0;
+    border-bottom: 1px solid rgba(242, 239, 231, 0.18);
+    white-space: nowrap;
+  }
+
+  .anatomy-index p {
+    display: none;
+  }
+
+  .anatomy-index button {
+    flex: 0 0 auto;
+    grid-template-columns: auto 1fr;
+    gap: 0.35rem;
+    min-height: 2rem;
+    border: 1px solid rgba(242, 239, 231, 0.2);
+  }
+
+  .anatomy-info {
+    bottom: 0;
+    padding: 0.9rem 1.15rem max(0.9rem, env(safe-area-inset-bottom));
+    background: rgba(31, 34, 30, 0.96);
+  }
+
+  .anatomy-info__description {
+    margin-top: 0.55rem !important;
+    font-size: 0.71rem;
+  }
+
+  .anatomy-info dl {
+    display: none;
+  }
+
+  .anatomy-info button {
+    min-height: 2.1rem;
+    margin-top: 0.75rem;
+  }
 }

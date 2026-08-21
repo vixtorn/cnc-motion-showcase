@@ -4,6 +4,8 @@ import { useThree } from '@react-three/fiber'
 import gsap from 'gsap'
 import { CatmullRomCurve3, MathUtils, PerspectiveCamera, Vector3, type Box3 } from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import type { AnatomyCameraPreset } from '../config/cncAnatomyConfig'
+import type { CncAnatomyComponentId } from '../types/cnc'
 import {
   CNC_CHOREOGRAPHY,
   getEffectiveCameraDuration,
@@ -53,6 +55,8 @@ export interface CameraRigHandle {
   resumeTransition: () => void
   cancelTransition: () => void
   setManualControlsEnabled: (enabled: boolean) => void
+  goToAnatomyOverview: () => void
+  focusAnatomyPreset: (id: CncAnatomyComponentId, preset: AnatomyCameraPreset) => void
 }
 
 interface CameraRigProps {
@@ -63,6 +67,7 @@ interface CameraRigProps {
   cameraSpeedMultiplier: number
   manualControlsLocked: boolean
   exclusiveCameraOwnership: boolean
+  anatomyModeActive: boolean
 }
 
 interface CameraPreset {
@@ -123,6 +128,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     cameraSpeedMultiplier,
     manualControlsLocked,
     exclusiveCameraOwnership,
+    anatomyModeActive,
   },
   ref,
 ) {
@@ -644,6 +650,36 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     [goToWaypoint],
   )
 
+  const goToAnatomyOverview = useCallback(() => {
+    if (!heroPreset) return
+    runTransition(
+      [{ name: 'hero', preset: heroPreset, duration: prefersReducedMotion() ? 0 : 0.7 }],
+      'anatomy overview',
+      { lockControls: true, releaseControls: true },
+    )
+  }, [heroPreset, runTransition])
+
+  const focusAnatomyPreset = useCallback(
+    (id: CncAnatomyComponentId, anatomyPreset: AnatomyCameraPreset) => {
+      if (!heroPreset) return
+      const position = new Vector3(...anatomyPreset.position)
+      const target = new Vector3(...anatomyPreset.target)
+      const preset: CameraPreset = {
+        target,
+        position,
+        distance: position.distanceTo(target),
+        radius: heroPreset.radius,
+        fov: anatomyPreset.fov,
+      }
+      runTransition(
+        [{ name: 'hero', preset, duration: prefersReducedMotion() ? 0 : 0.62 }],
+        `anatomy ${id}`,
+        { lockControls: true, releaseControls: true },
+      )
+    },
+    [heroPreset, runTransition],
+  )
+
   const resetCamera = useCallback(() => goToHero(), [goToHero])
 
   const testDumanCamera = useCallback(
@@ -679,13 +715,17 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
       resumeTransition,
       cancelTransition,
       setManualControlsEnabled,
+      goToAnatomyOverview,
+      focusAnatomyPreset,
     }),
     [
       cancelTransition,
       applyPathProgress,
       getCameraSnapshot,
+      focusAnatomyPreset,
       goToHero,
       goToInterior,
+      goToAnatomyOverview,
       goToWaypoint,
       pauseTransition,
       playPath,
@@ -739,6 +779,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
       enabled={!manualControlsLocked}
       enableDamping
       dampingFactor={0.075}
+      enablePan={!anatomyModeActive}
       minDistance={heroPreset ? heroPreset.radius * cameraCalibration.minimumOrbitDistanceScale : 1}
       maxDistance={heroPreset ? heroPreset.distance * 2.4 : 10000}
       minPolarAngle={Math.PI * 0.08}

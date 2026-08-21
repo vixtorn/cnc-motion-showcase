@@ -13,11 +13,13 @@ import { useCncChoreography } from '../animation/useCncChoreography'
 import { VISUAL_CALIBRATION } from '../animation/visualCalibrationConfig'
 import type {
   CalibrationDirection,
+  CncAnatomyComponentId,
   CncInspection,
   CncProcessComparisonSnapshot,
   CncSequenceState,
   CncSequenceTelemetry,
 } from '../types/cnc'
+import { getAnatomyComponent } from '../config/cncAnatomyConfig'
 import {
   CameraRig,
   type CameraRigHandle,
@@ -27,6 +29,7 @@ import { CNCModel, type CNCModelHandle } from './CNCModel'
 import { SceneLighting } from './SceneLighting'
 import { CoolantEffect, type CoolantEffectHandle } from '../effects/CoolantEffect'
 import { SparkEffect, type SparkEffectHandle } from '../effects/SparkEffect'
+import { AnatomyHotspots } from './AnatomyHotspots'
 
 export interface CNCSceneHandle {
   resetCamera: () => void
@@ -76,6 +79,10 @@ export interface CNCSceneHandle {
   resetProcessComparison: () => void
   exitProcessComparisonMode: () => Promise<void>
   getProcessComparisonSnapshot: () => CncProcessComparisonSnapshot
+  enterAnatomyMode: () => Promise<boolean>
+  exitAnatomyMode: () => Promise<void>
+  focusAnatomyComponent: (id: CncAnatomyComponentId) => void
+  returnToAnatomyOverview: () => void
 }
 
 interface CNCSceneProps {
@@ -87,6 +94,9 @@ interface CNCSceneProps {
   scrollModeActive: boolean
   operatorModeActive: boolean
   comparisonModeActive: boolean
+  anatomyModeActive: boolean
+  anatomySelectedId: CncAnatomyComponentId | null
+  onAnatomyComponentSelect: (id: CncAnatomyComponentId) => void
 }
 
 export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCScene(
@@ -99,6 +109,9 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     scrollModeActive,
     operatorModeActive,
     comparisonModeActive,
+    anatomyModeActive,
+    anatomySelectedId,
+    onAnatomyComponentSelect,
   },
   ref,
 ) {
@@ -295,8 +308,36 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
           clonedMaterialCount: 0,
           clippingPlaneCount: 0,
         },
+      enterAnatomyMode: async () => {
+        choreography.pauseSequence()
+        cameraRigRef.current?.cancelTransition()
+        cameraRigRef.current?.setManualControlsEnabled(false)
+        coolantRef.current?.resetCoolant()
+        sparkRef.current?.resetSparks()
+        const model = modelRef.current
+        if (!model) return false
+        model.restoreAllImmediate()
+        model.revealFinishedImmediate()
+        if (!model.openDoorForInspectionImmediate()) return false
+        cameraRigRef.current?.goToAnatomyOverview()
+        return true
+      },
+      exitAnatomyMode: async () => {
+        cameraRigRef.current?.cancelTransition()
+        coolantRef.current?.resetCoolant()
+        sparkRef.current?.resetSparks()
+        modelRef.current?.restoreAllImmediate()
+        choreography.setSequenceProgress(1)
+      },
+      focusAnatomyComponent: (id) => {
+        if (!inspection) return
+        const component = getAnatomyComponent(id)
+        if (!component) return
+        cameraRigRef.current?.focusAnatomyPreset(id, component.camera)
+      },
+      returnToAnatomyOverview: () => cameraRigRef.current?.goToAnatomyOverview(),
     }),
-    [choreography],
+    [choreography, inspection],
   )
 
   const handleInspection = useCallback(
@@ -331,6 +372,13 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
           onInspection={handleInspection}
         />
       </Suspense>
+      {anatomyModeActive && inspection ? (
+        <AnatomyHotspots
+          inspection={inspection}
+          selectedId={anatomySelectedId}
+          onSelect={onAnatomyComponentSelect}
+        />
+      ) : null}
       <CameraRig
         ref={cameraRigRef}
         bounds={inspection?.bounds ?? null}
@@ -341,7 +389,10 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
         manualControlsLocked={
           scrollModeActive || operatorModeActive || comparisonModeActive
         }
-        exclusiveCameraOwnership={operatorModeActive || comparisonModeActive}
+        exclusiveCameraOwnership={
+          operatorModeActive || comparisonModeActive || anatomyModeActive
+        }
+        anatomyModeActive={anatomyModeActive}
       />
       <CoolantEffect ref={coolantRef} />
       {import.meta.env.DEV ? (

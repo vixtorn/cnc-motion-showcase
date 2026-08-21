@@ -6,7 +6,9 @@ import { CinematicHero } from './components/CinematicHero'
 import { CinematicNarrative } from './components/CinematicNarrative'
 import { DevPanel } from './components/DevPanel'
 import { LoadingScreen } from './components/LoadingScreen'
+import { MachineAnatomy } from './components/MachineAnatomy'
 import { ModelErrorBoundary } from './components/ModelErrorBoundary'
+import { AnatomyPanel } from './components/AnatomyPanel'
 import { OperatorPanel } from './components/OperatorPanel'
 import { PostCinematicIntro } from './components/PostCinematicIntro'
 import { ProcessComparisonPanel } from './components/ProcessComparisonPanel'
@@ -19,6 +21,7 @@ import {
   type CncScrollDiagnostics,
 } from './hooks/useCncScrollDriver'
 import { useCncOperatorMode } from './hooks/useCncOperatorMode'
+import { useCncAnatomyMode } from './hooks/useCncAnatomyMode'
 import { useCncProcessComparison } from './hooks/useCncProcessComparison'
 import { useSmoothScroll } from './hooks/useSmoothScroll'
 import { CNCScene, type CNCSceneHandle } from './scene/CNCScene'
@@ -68,6 +71,11 @@ function App() {
     onExperienceModeChange: setExperienceMode,
   })
   const comparison = useCncProcessComparison({
+    sceneRef,
+    canEnter: experienceMode === 'content',
+    onExperienceModeChange: setExperienceMode,
+  })
+  const anatomy = useCncAnatomyMode({
     sceneRef,
     canEnter: experienceMode === 'content',
     onExperienceModeChange: setExperienceMode,
@@ -182,7 +190,9 @@ function App() {
         <div
           className={`cinematic-stage${
             operator.isActive ? ' is-operator-active' : ''
-          }${comparison.isActive ? ' is-comparison-active' : ''}`}
+          }${comparison.isActive ? ' is-comparison-active' : ''}${
+            anatomy.isActive ? ' is-anatomy-active' : ''
+          }`}
         >
           <section className="viewport" aria-label="Interactive CNC model">
             <ModelErrorBoundary>
@@ -198,6 +208,9 @@ function App() {
                 }
                 operatorModeActive={operator.isActive}
                 comparisonModeActive={comparison.isActive}
+                anatomyModeActive={anatomy.isActive}
+                anatomySelectedId={anatomy.selectedId}
+                onAnatomyComponentSelect={anatomy.select}
               />
             </ModelErrorBoundary>
             <LoadingScreen />
@@ -231,6 +244,15 @@ function App() {
               onProgressChange={comparison.setProgress}
               onReset={comparison.reset}
               onExit={comparison.exit}
+            />
+          ) : null}
+
+          {anatomy.isActive ? (
+            <AnatomyPanel
+              selectedId={anatomy.selectedId}
+              onSelect={anatomy.select}
+              onOverview={anatomy.returnToOverview}
+              onExit={anatomy.exit}
             />
           ) : null}
 
@@ -317,6 +339,10 @@ function App() {
       <StockToFinished
         ready={Boolean(inspection) && experienceMode === 'content'}
         onEnter={comparison.enter}
+      />
+      <MachineAnatomy
+        ready={Boolean(inspection) && experienceMode === 'content'}
+        onEnter={anatomy.enter}
       />
     </main>
   )
