@@ -17,16 +17,17 @@ const normalizedRange = (value: number, start: number, end: number) =>
 
 interface CinematicHeroProps {
   progress: number
+  active: boolean
 }
 
-export function CinematicHero({ progress }: CinematicHeroProps) {
+export function CinematicHero({ progress, active }: CinematicHeroProps) {
   const exitProgress = normalizedRange(
     progress,
     HERO_PRESENTATION.fadeStart,
     HERO_PRESENTATION.fadeEnd,
   )
   const visibility = 1 - exitProgress
-  const isHidden = visibility === 0
+  const isHidden = visibility === 0 || !active
   const style = {
     '--hero-exit': exitProgress,
     '--hero-visibility': visibility,
@@ -39,10 +40,14 @@ export function CinematicHero({ progress }: CinematicHeroProps) {
       aria-hidden={isHidden}
     >
       <div className="hero-masthead">
-        <p className="hero-identity">DUMAN / CNC 01</p>
-        <p className="hero-study-label" aria-hidden="true">
-          Interactive manufacturing study
-        </p>
+        <a
+          className="hero-identity"
+          href="https://github.com/vixtorn/cnc-motion-showcase"
+          target="_blank"
+          rel="noreferrer"
+        >
+          EMİR DUMAN
+        </a>
       </div>
 
       <div className="hero-title-block">

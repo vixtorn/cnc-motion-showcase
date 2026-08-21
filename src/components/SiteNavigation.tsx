@@ -37,14 +37,15 @@ export function SiteNavigation({ activeSectionId, visible, onNavigate }: SiteNav
       aria-label="Primary"
     >
       <div className="site-navigation__bar">
-        <button
-          type="button"
+        <a
           className="site-navigation__brand"
-          onClick={() => handleNavigate('cycle')}
-          aria-label="Back to the start of the CNC study"
+          href="https://github.com/vixtorn/cnc-motion-showcase"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Emir Duman on GitHub"
         >
-          DUMAN / CNC 01
-        </button>
+          EMİR DUMAN
+        </a>
         <div className="site-navigation__desktop-links">
           {SITE_SECTIONS.map((section) => (
             <button

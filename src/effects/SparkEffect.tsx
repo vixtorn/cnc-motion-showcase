@@ -13,8 +13,8 @@ import {
 import { CNC_MACHINING } from '../animation/cncMachiningConfig'
 
 export interface SparkEffectHandle {
-  startSparks: (source?: 'diagnostic' | 'sequence') => void
-  stopSparks: (source?: 'diagnostic' | 'sequence', clearExisting?: boolean) => void
+  startSparks: (source?: 'diagnostic' | 'sequence' | 'playground') => void
+  stopSparks: (source?: 'diagnostic' | 'sequence' | 'playground', clearExisting?: boolean) => void
   resetSparks: () => void
   getSparkSnapshot: () => Record<string, unknown>
 }

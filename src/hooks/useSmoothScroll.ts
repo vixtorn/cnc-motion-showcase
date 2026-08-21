@@ -53,7 +53,6 @@ export function useSmoothScroll({
       anchors: true,
       respectReducedMotion: true,
     })
-
     lenisRef.current = lenis
     if (suspendedRef.current) lenis.stop()
 
@@ -91,7 +90,7 @@ export function useSmoothScroll({
     ) => {
       const lenis = lenisRef.current
       if (lenis && !isReducedMotion) {
-        lenis.scrollTo(element, { offset, immediate, force: true })
+        lenis.scrollTo(element, { offset, immediate })
         return
       }
 

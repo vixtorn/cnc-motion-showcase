@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react'
 import { ACESFilmicToneMapping, SRGBColorSpace } from 'three'
+import { gsap } from 'gsap'
 import type { CncAxis } from '../animation/cncAnimationConfig'
 import { useCncChoreography } from '../animation/useCncChoreography'
 import { VISUAL_CALIBRATION } from '../animation/visualCalibrationConfig'
@@ -33,6 +34,10 @@ import { CoolantEffect, type CoolantEffectHandle } from '../effects/CoolantEffec
 import { SparkEffect, type SparkEffectHandle } from '../effects/SparkEffect'
 import { AnatomyHotspots } from './AnatomyHotspots'
 import { AnatomyInteractionLayer } from './AnatomyInteractionLayer'
+import {
+  ProcessPlaygroundInteractionLayer,
+  type CncProcessPlaygroundId,
+} from './ProcessPlaygroundInteractionLayer'
 
 export interface CNCSceneHandle {
   resetCamera: () => void
@@ -67,6 +72,13 @@ export interface CNCSceneHandle {
   setSequenceProgress: (progress: number) => void
   getSequenceProgress: () => number
   getSequenceDuration: () => number
+  enterProcessPlayground: (showFinished?: boolean) => void
+  exitProcessPlayground: () => void
+  resetProcessPlayground: () => void
+  processPlaygroundEngageTailstock: () => Promise<boolean>
+  processPlaygroundActivateTurret: () => Promise<boolean>
+  startProcessPlaygroundSparks: () => void
+  completeProcessPlaygroundTransformation: () => Promise<boolean>
   enterOperatorMode: () => Promise<boolean>
   exitOperatorMode: () => Promise<boolean>
   operatorStartSpindle: () => Promise<boolean>
@@ -97,6 +109,12 @@ interface CNCSceneProps {
   scrollModeActive: boolean
   operatorModeActive: boolean
   comparisonModeActive: boolean
+  playgroundModeActive: boolean
+  playgroundInteractionEnabled: boolean
+  playgroundSelectedIds: ReadonlySet<CncProcessPlaygroundId>
+  playgroundHoveredId: CncProcessPlaygroundId | null
+  onPlaygroundHoverChange: (id: CncProcessPlaygroundId | null) => void
+  onPlaygroundSelect: (id: CncProcessPlaygroundId) => void
   anatomyModeActive: boolean
   anatomySelectedId: CncAnatomyComponentId | null
   onAnatomyComponentSelect: (id: CncAnatomyComponentId) => void
@@ -112,6 +130,12 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     scrollModeActive,
     operatorModeActive,
     comparisonModeActive,
+    playgroundModeActive,
+    playgroundInteractionEnabled,
+    playgroundSelectedIds,
+    playgroundHoveredId,
+    onPlaygroundHoverChange,
+    onPlaygroundSelect,
     anatomyModeActive,
     anatomySelectedId,
     onAnatomyComponentSelect,
@@ -122,6 +146,8 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
   const modelRef = useRef<CNCModelHandle>(null)
   const coolantRef = useRef<CoolantEffectHandle>(null)
   const sparkRef = useRef<SparkEffectHandle>(null)
+  const playgroundTransitionRef = useRef<gsap.core.Timeline | null>(null)
+  const playgroundTransitionResolveRef = useRef<((completed: boolean) => void) | null>(null)
   const [inspection, setInspection] = useState<CncInspection | null>(null)
   const [anatomyHoveredId, setAnatomyHoveredId] = useState<CncAnatomyComponentId | null>(null)
   const [rendererDpr, setRendererDpr] = useState(() => getRendererDprProfile(window.innerWidth))
@@ -135,6 +161,13 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     onProgressChange: onSequenceProgressChange,
     onTelemetryChange: onSequenceTelemetryChange,
   })
+
+  const cancelProcessPlaygroundTransition = useCallback(() => {
+    playgroundTransitionRef.current?.kill()
+    playgroundTransitionRef.current = null
+    playgroundTransitionResolveRef.current?.(false)
+    playgroundTransitionResolveRef.current = null
+  }, [])
 
   useImperativeHandle(
     ref,
@@ -269,6 +302,98 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
       },
       getOperatorSpindleVisualRpm: () =>
         modelRef.current?.getChuckVisualRpm() ?? 0,
+      enterProcessPlayground: (showFinished = false) => {
+        choreography.pauseSequence()
+        cameraRigRef.current?.cancelTransition()
+        cameraRigRef.current?.setManualControlsEnabled(false)
+        coolantRef.current?.resetCoolant()
+        sparkRef.current?.resetSparks()
+        const model = modelRef.current
+        if (!model) return
+        if (!showFinished) model.restoreAllImmediate()
+        model.openDoorForInspectionImmediate()
+        if (showFinished) model.revealFinishedImmediate()
+        cameraRigRef.current?.goToInterior({
+          duration: 0,
+          lockControls: true,
+          releaseControls: false,
+        })
+      },
+      exitProcessPlayground: () => {
+        cancelProcessPlaygroundTransition()
+        cameraRigRef.current?.cancelTransition()
+        coolantRef.current?.resetCoolant()
+        sparkRef.current?.resetSparks()
+        modelRef.current?.killAllMotion()
+        choreography.setSequenceProgress(1)
+      },
+      resetProcessPlayground: () => {
+        cancelProcessPlaygroundTransition()
+        coolantRef.current?.resetCoolant()
+        sparkRef.current?.resetSparks()
+        const model = modelRef.current
+        if (!model) return
+        model.restoreAllImmediate()
+        model.openDoorForInspectionImmediate()
+        cameraRigRef.current?.goToInterior({
+          duration: 0,
+          lockControls: true,
+          releaseControls: false,
+        })
+      },
+      processPlaygroundEngageTailstock: async () =>
+        (await modelRef.current?.operatorEngageTailstock()) ?? false,
+      processPlaygroundActivateTurret: async () => {
+        const model = modelRef.current
+        if (!model) return false
+        const indexed = await model.operatorIndexTool()
+        if (!indexed) return false
+        const approached = await model.operatorApproachCut()
+        if (!approached) return false
+        sparkRef.current?.stopSparks('playground', true)
+        coolantRef.current?.startCoolant()
+        coolantRef.current?.setCoolantIntensity(1)
+        coolantRef.current?.setRevealOcclusion(0.45)
+        return true
+      },
+      startProcessPlaygroundSparks: () => sparkRef.current?.startSparks('playground'),
+      completeProcessPlaygroundTransformation: async () => {
+        const model = modelRef.current
+        if (!model) return false
+        cancelProcessPlaygroundTransition()
+
+        return new Promise<boolean>((resolve) => {
+          const reveal = { occlusion: 0.45 }
+          const settle = (completed: boolean) => {
+            if (playgroundTransitionResolveRef.current !== settle) return
+            playgroundTransitionRef.current = null
+            playgroundTransitionResolveRef.current = null
+            resolve(completed)
+          }
+
+          playgroundTransitionResolveRef.current = settle
+          const transition = gsap.timeline()
+          playgroundTransitionRef.current = transition
+          transition
+            .to(reveal, {
+              occlusion: 0.84,
+              duration: 0.5,
+              ease: 'power1.out',
+              onUpdate: () => coolantRef.current?.setRevealOcclusion(reveal.occlusion),
+            })
+            .call(() => model.revealFinishedImmediate())
+            .to(reveal, {
+              occlusion: 0.18,
+              duration: 1,
+              ease: 'power1.inOut',
+              onUpdate: () => coolantRef.current?.setRevealOcclusion(reveal.occlusion),
+            })
+            .call(() => {
+              coolantRef.current?.setCoolantIntensity(0.4)
+              settle(true)
+            })
+        })
+      },
       enterProcessComparisonMode: async () => {
         choreography.pauseSequence()
         cameraRigRef.current?.cancelTransition()
@@ -342,7 +467,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
       },
       returnToAnatomyOverview: () => cameraRigRef.current?.goToAnatomyOverview(),
     }),
-    [choreography, inspection],
+    [cancelProcessPlaygroundTransition, choreography, inspection],
   )
 
   const handleInspection = useCallback(
@@ -413,6 +538,16 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
           />
         </>
       ) : null}
+      {playgroundModeActive && playgroundInteractionEnabled && inspection ? (
+        <ProcessPlaygroundInteractionLayer
+          inspection={inspection}
+          enabled={playgroundInteractionEnabled}
+          selectedIds={playgroundSelectedIds}
+          hoveredId={playgroundHoveredId}
+          onHoverChange={onPlaygroundHoverChange}
+          onSelect={onPlaygroundSelect}
+        />
+      ) : null}
       <CameraRig
         ref={cameraRigRef}
         bounds={inspection?.bounds ?? null}
@@ -421,22 +556,20 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
         finishedWorkpieceBounds={inspection?.finishedWorkpieceBounds ?? null}
         cameraSpeedMultiplier={cameraSpeedMultiplier}
         manualControlsLocked={
-          scrollModeActive || operatorModeActive || comparisonModeActive
+          scrollModeActive || operatorModeActive || comparisonModeActive || playgroundModeActive
         }
         exclusiveCameraOwnership={
-          operatorModeActive || comparisonModeActive || anatomyModeActive
+          operatorModeActive || comparisonModeActive || playgroundModeActive || anatomyModeActive
         }
         anatomyModeActive={anatomyModeActive}
       />
       <CoolantEffect ref={coolantRef} />
-      {import.meta.env.DEV ? (
-        <SparkEffect
-          ref={sparkRef}
-          rawWorkpiece={inspection?.nodes.workpiece ?? null}
-          finishedWorkpiece={inspection?.nodes.finishedWorkpiece ?? null}
-          tailstockTip={inspection?.nodes.tailstockTip ?? null}
-        />
-      ) : null}
+      <SparkEffect
+        ref={sparkRef}
+        rawWorkpiece={inspection?.nodes.workpiece ?? null}
+        finishedWorkpiece={inspection?.nodes.finishedWorkpiece ?? null}
+        tailstockTip={inspection?.nodes.tailstockTip ?? null}
+      />
     </Canvas>
   )
 })

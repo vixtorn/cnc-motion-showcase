@@ -20,7 +20,7 @@ import { ProcessComparisonPanel } from './components/ProcessComparisonPanel'
 import { RunTheMachine } from './components/RunTheMachine'
 import { SiteFooter } from './components/SiteFooter'
 import { SiteNavigation } from './components/SiteNavigation'
-import { StockToFinished } from './components/StockToFinished'
+import { ProcessPlayground } from './components/ProcessPlayground'
 import {
   CNC_SCROLL,
   getCinematicViewportHeights,
@@ -30,6 +30,8 @@ import {
 import { useCncOperatorMode } from './hooks/useCncOperatorMode'
 import { useCncAnatomyMode } from './hooks/useCncAnatomyMode'
 import { useCncProcessComparison } from './hooks/useCncProcessComparison'
+import { useCncProcessPlayground } from './hooks/useCncProcessPlayground'
+import { usePlaygroundReveal } from './hooks/usePlaygroundReveal'
 import { useSmoothScroll } from './hooks/useSmoothScroll'
 import { useActiveSiteSection } from './hooks/useActiveSiteSection'
 import { CNCScene, type CNCSceneHandle } from './scene/CNCScene'
@@ -44,6 +46,9 @@ import { INITIAL_CNC_SEQUENCE_TELEMETRY } from './types/cnc'
 function App() {
   const sceneRef = useRef<CNCSceneHandle>(null)
   const cinematicScrollRef = useRef<HTMLElement>(null)
+  const cinematicStageRef = useRef<HTMLDivElement>(null)
+  const playgroundSectionRef = useRef<HTMLElement>(null)
+  const playgroundWasActiveRef = useRef(false)
   const pacingReconciliationFrame = useRef<number | null>(null)
   const [inspection, setInspection] = useState<CncInspection | null>(null)
   const [isChuckTesting, setIsChuckTesting] = useState(false)
@@ -73,6 +78,8 @@ function App() {
     CNC_CHOREOGRAPHY.cameraSpeed.defaultMultiplier,
   )
   const [experienceMode, setExperienceMode] = useState<CncExperienceMode>('content')
+  const [isDevPanelVisible, setIsDevPanelVisible] = useState(false)
+  const [playgroundNavigationReleased, setPlaygroundNavigationReleased] = useState(false)
   const operator = useCncOperatorMode({
     sceneRef,
     canEnter: experienceMode === 'content',
@@ -92,7 +99,36 @@ function App() {
     enabled: smoothScrollEnabled,
     suspended: experienceMode !== 'content',
   })
+  const scrollToSiteElement = smoothScroll.scrollToElement
   const activeSiteSection = useActiveSiteSection()
+  const isContentExperience = experienceMode === 'content'
+  const isCycleSection = activeSiteSection === 'cycle'
+  const playgroundReveal = usePlaygroundReveal({
+    sectionRef: playgroundSectionRef,
+    presentationRef: cinematicStageRef,
+  })
+  const playgroundModeActive =
+    playgroundReveal.isPresenting && !playgroundNavigationReleased
+  const playground = useCncProcessPlayground({
+    sceneRef,
+    active: playgroundModeActive,
+    interactionEnabled: playgroundModeActive && playgroundReveal.interactionEnabled,
+  })
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+
+    const handleDevPanelToggle = (event: KeyboardEvent) => {
+      if (!event.shiftKey || event.key.toLowerCase() !== 'd') return
+      const target = event.target as HTMLElement | null
+      if (target?.matches('input, textarea, select, [contenteditable="true"]')) return
+      event.preventDefault()
+      setIsDevPanelVisible((visible) => !visible)
+    }
+
+    window.addEventListener('keydown', handleDevPanelToggle)
+    return () => window.removeEventListener('keydown', handleDevPanelToggle)
+  }, [])
 
   const navigateToHashTarget = useCallback(
     (hash: string, immediate = false) => {
@@ -107,22 +143,26 @@ function App() {
       const targetId = aliases[hash] ?? hash
       const target = document.getElementById(targetId)
       if (!target) return
-      smoothScroll.scrollToElement(target, {
+      scrollToSiteElement(target, {
         immediate,
         offset: -SITE_NAVIGATION_HEIGHT_PX,
       })
     },
-    [smoothScroll],
+    [scrollToSiteElement],
   )
 
   const handleSiteNavigation = useCallback(
     (id: SiteSectionId) => {
+      if (playgroundModeActive && id !== 'process') {
+        setPlaygroundNavigationReleased(true)
+        sceneRef.current?.exitProcessPlayground()
+      }
       if (window.location.hash !== `#${id}`) {
         window.history.pushState(null, '', `#${id}`)
       }
       navigateToHashTarget(id)
     },
-    [navigateToHashTarget],
+    [navigateToHashTarget, playgroundModeActive],
   )
 
   useEffect(() => {
@@ -135,11 +175,9 @@ function App() {
       frame = window.requestAnimationFrame(handleHistoryNavigation)
     }
     window.addEventListener('popstate', handleHistoryNavigation)
-    window.addEventListener('hashchange', handleHistoryNavigation)
     return () => {
       if (frame !== null) window.cancelAnimationFrame(frame)
       window.removeEventListener('popstate', handleHistoryNavigation)
-      window.removeEventListener('hashchange', handleHistoryNavigation)
     }
   }, [navigateToHashTarget])
 
@@ -151,6 +189,25 @@ function App() {
     },
     [],
   )
+
+  useEffect(() => {
+    if (!playgroundReveal.isPresenting) setPlaygroundNavigationReleased(false)
+  }, [playgroundReveal.isPresenting])
+
+  useEffect(() => {
+    const canPresentPlayground =
+      playgroundModeActive && experienceMode === 'content' && Boolean(inspection)
+
+    if (canPresentPlayground && !playgroundWasActiveRef.current) {
+      sceneRef.current?.enterProcessPlayground(playground.isComplete)
+      playgroundWasActiveRef.current = true
+    }
+
+    if (!canPresentPlayground && playgroundWasActiveRef.current) {
+      sceneRef.current?.exitProcessPlayground()
+      playgroundWasActiveRef.current = false
+    }
+  }, [experienceMode, inspection, playground.isComplete, playgroundModeActive])
 
   const handleInspection = useCallback((nextInspection: CncInspection) => {
     setInspection(nextInspection)
@@ -228,7 +285,10 @@ function App() {
   useCncScrollDriver({
     containerRef: cinematicScrollRef,
     enabled:
-      Boolean(inspection) && scrollDriverEnabled && experienceMode === 'content',
+      Boolean(inspection) &&
+      scrollDriverEnabled &&
+      experienceMode === 'content' &&
+      !playgroundModeActive,
     onProgress: handleScrollProgress,
     onDiagnostics: setScrollDiagnostics,
   })
@@ -242,7 +302,7 @@ function App() {
     <main className="app-shell" style={cinematicScrollStyle}>
       <SiteNavigation
         activeSectionId={activeSiteSection}
-        visible={experienceMode === 'content' && activeSiteSection !== 'cycle'}
+        visible={isContentExperience && !isCycleSection}
         onNavigate={handleSiteNavigation}
       />
       <section
@@ -252,10 +312,12 @@ function App() {
         aria-label="Scroll-driven CNC cinematic"
       >
         <div
+          ref={cinematicStageRef}
           className={`cinematic-stage${
             operator.isActive ? ' is-operator-active' : ''
           }${comparison.isActive ? ' is-comparison-active' : ''}${
             anatomy.isActive ? ' is-anatomy-active' : ''
+          }${playgroundModeActive ? ' is-playground-active' : ''
           }`}
         >
           <section className="viewport" aria-label="Interactive CNC model">
@@ -272,6 +334,16 @@ function App() {
                 }
                 operatorModeActive={operator.isActive}
                 comparisonModeActive={comparison.isActive}
+                playgroundModeActive={playgroundModeActive}
+                playgroundInteractionEnabled={
+                  playgroundModeActive &&
+                  playgroundReveal.interactionEnabled &&
+                  !playground.isComplete
+                }
+                playgroundSelectedIds={playground.selectedIds}
+                playgroundHoveredId={playground.hoveredId}
+                onPlaygroundHoverChange={playground.setHoveredId}
+                onPlaygroundSelect={playground.select}
                 anatomyModeActive={anatomy.isActive}
                 anatomySelectedId={anatomy.selectedId}
                 onAnatomyComponentSelect={anatomy.select}
@@ -280,7 +352,7 @@ function App() {
             <LoadingScreen />
           </section>
 
-          <CinematicHero progress={sequenceProgress} />
+          <CinematicHero progress={sequenceProgress} active={isContentExperience && isCycleSection} />
           <CinematicNarrative
             progress={sequenceProgress}
             telemetry={sequenceTelemetry}
@@ -320,7 +392,7 @@ function App() {
             />
           ) : null}
 
-          {import.meta.env.DEV && experienceMode === 'content' ? (
+          {import.meta.env.DEV && isDevPanelVisible && experienceMode === 'content' ? (
             <DevPanel
               inspection={inspection}
               isChuckTesting={isChuckTesting}
@@ -400,9 +472,12 @@ function App() {
         ready={Boolean(inspection) && experienceMode === 'content'}
         onEnter={operator.enter}
       />
-      <StockToFinished
-        ready={Boolean(inspection) && experienceMode === 'content'}
-        onEnter={comparison.enter}
+      <ProcessPlayground
+        sectionRef={playgroundSectionRef}
+        isActive={playgroundModeActive}
+        interactionEnabled={playgroundModeActive && playgroundReveal.interactionEnabled}
+        status={playground.status}
+        onReset={playground.reset}
       />
       <MachineAnatomy
         ready={Boolean(inspection) && experienceMode === 'content'}

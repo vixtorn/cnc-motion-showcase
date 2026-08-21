@@ -1,76 +1,74 @@
 import { useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { Mesh, Raycaster, Vector2 } from 'three'
+import { Mesh, Raycaster, Vector2, type Object3D } from 'three'
 import {
   ANATOMY_INTERACTION_COLORS,
   ANATOMY_OUTLINE_THICKNESS,
-  CNC_ANATOMY_COMPONENTS,
-  getAnatomyComponentMeshes,
 } from '../config/cncAnatomyConfig'
-import type { CncAnatomyComponentId, CncInspection } from '../types/cnc'
+import type { CncInspection } from '../types/cnc'
 import { InteractiveMeshOutline } from './InteractiveMeshOutline'
 
-interface AnatomyInteractionLayerProps {
+export type CncProcessPlaygroundId = 'tailstock' | 'turret'
+
+interface ProcessPlaygroundInteractionLayerProps {
   inspection: CncInspection
-  selectedId: CncAnatomyComponentId | null
-  hoveredId: CncAnatomyComponentId | null
-  onHoverChange: (id: CncAnatomyComponentId | null) => void
-  onSelect: (id: CncAnatomyComponentId) => void
+  enabled: boolean
+  selectedIds: ReadonlySet<CncProcessPlaygroundId>
+  hoveredId: CncProcessPlaygroundId | null
+  onHoverChange: (id: CncProcessPlaygroundId | null) => void
+  onSelect: (id: CncProcessPlaygroundId) => void
 }
 
 const CLICK_DRAG_THRESHOLD = 6
 
-const getOutlineState = (
-  id: CncAnatomyComponentId,
-  selectedId: CncAnatomyComponentId | null,
-  hoveredId: CncAnatomyComponentId | null,
-) => {
-  if (selectedId === id) return 'selected'
-  if (hoveredId === id) return 'hovered'
-  return 'idle'
+const getMeshes = (root: Object3D | null) => {
+  if (!root) return []
+  const meshes: Mesh[] = []
+  root.traverse((object) => {
+    if (object instanceof Mesh) meshes.push(object)
+  })
+  return meshes
 }
 
-export function AnatomyInteractionLayer({
+const getOutlineState = (
+  id: CncProcessPlaygroundId,
+  selectedIds: ReadonlySet<CncProcessPlaygroundId>,
+  hoveredId: CncProcessPlaygroundId | null,
+) => (selectedIds.has(id) ? 'selected' : hoveredId === id ? 'hovered' : 'idle')
+
+export function ProcessPlaygroundInteractionLayer({
   inspection,
-  selectedId,
+  enabled,
+  selectedIds,
   hoveredId,
   onHoverChange,
   onSelect,
-}: AnatomyInteractionLayerProps) {
+}: ProcessPlaygroundInteractionLayerProps) {
   const { camera, gl, invalidate } = useThree()
   const pointerDown = useRef<{ x: number; y: number } | null>(null)
-  const hoveredRef = useRef<CncAnatomyComponentId | null>(hoveredId)
+  const hoveredRef = useRef<CncProcessPlaygroundId | null>(hoveredId)
   const raycaster = useMemo(() => new Raycaster(), [])
   const pointer = useMemo(() => new Vector2(), [])
-  const componentMeshes = useMemo(
-    () =>
-      CNC_ANATOMY_COMPONENTS.map((component) => ({
-        id: component.id,
-        meshes: getAnatomyComponentMeshes(component, inspection.nodes),
-      })),
+  const components = useMemo(
+    () => [
+      { id: 'tailstock' as const, meshes: getMeshes(inspection.nodes.tailstock) },
+      { id: 'turret' as const, meshes: getMeshes(inspection.nodes.turretCarriage) },
+    ],
     [inspection],
   )
   const meshToComponent = useMemo(() => {
-    const map = new Map<Mesh, CncAnatomyComponentId>()
-    componentMeshes.forEach(({ id, meshes }) => meshes.forEach((mesh) => map.set(mesh, id)))
+    const map = new Map<Mesh, CncProcessPlaygroundId>()
+    components.forEach(({ id, meshes }) => meshes.forEach((mesh) => map.set(mesh, id)))
     return map
-  }, [componentMeshes])
+  }, [components])
   const pickableMeshes = useMemo(() => [...meshToComponent.keys()], [meshToComponent])
-
-  useEffect(() => {
-    if (!import.meta.env.DEV) return
-    console.info(
-      `[CNC] Anatomy interaction meshes ${JSON.stringify(
-        Object.fromEntries(componentMeshes.map(({ id, meshes }) => [id, meshes.length])),
-      )}`,
-    )
-  }, [componentMeshes])
 
   useEffect(() => {
     hoveredRef.current = hoveredId
   }, [hoveredId])
 
   useEffect(() => {
+    if (!enabled) return
     const canvas = gl.domElement
     const previousCursor = canvas.style.cursor
     const getComponentAtEvent = (event: PointerEvent) => {
@@ -83,7 +81,7 @@ export function AnatomyInteractionLayer({
       const hit = raycaster.intersectObjects(pickableMeshes, false)[0]
       return hit ? meshToComponent.get(hit.object as Mesh) ?? null : null
     }
-    const setHovered = (id: CncAnatomyComponentId | null) => {
+    const setHovered = (id: CncProcessPlaygroundId | null) => {
       if (hoveredRef.current === id) return
       hoveredRef.current = id
       canvas.style.cursor = id ? 'pointer' : previousCursor
@@ -98,8 +96,9 @@ export function AnatomyInteractionLayer({
     const handlePointerUp = (event: PointerEvent) => {
       const start = pointerDown.current
       pointerDown.current = null
-      if (!start) return
-      if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_DRAG_THRESHOLD) return
+      if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_DRAG_THRESHOLD) {
+        return
+      }
       const id = getComponentAtEvent(event)
       if (id) onSelect(id)
     }
@@ -117,10 +116,10 @@ export function AnatomyInteractionLayer({
       pointerDown.current = null
       if (hoveredRef.current !== null) onHoverChange(null)
     }
-  }, [camera, gl, invalidate, meshToComponent, onHoverChange, onSelect, pickableMeshes, pointer, raycaster])
+  }, [camera, enabled, gl, invalidate, meshToComponent, onHoverChange, onSelect, pickableMeshes, pointer, raycaster])
 
-  return componentMeshes.flatMap(({ id, meshes }) => {
-    const state = getOutlineState(id, selectedId, hoveredId)
+  return components.flatMap(({ id, meshes }) => {
+    const state = getOutlineState(id, selectedIds, hoveredId)
     return meshes.map((mesh) => (
       <InteractiveMeshOutline
         key={mesh.uuid}
