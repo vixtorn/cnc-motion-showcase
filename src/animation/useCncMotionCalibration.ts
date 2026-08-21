@@ -50,6 +50,7 @@ export interface CncMotionController {
   resetDoor: () => void
   resetAllAssemblies: () => void
   operatorOpenDoor: () => Promise<boolean>
+  openDoorForInspectionImmediate: () => boolean
   operatorStartSpindle: () => Promise<boolean>
   operatorEngageTailstock: () => Promise<boolean>
   operatorIndexTool: () => Promise<boolean>
@@ -684,6 +685,25 @@ export function useCncMotionCalibration({
     [animateOperatorPosition, homeTransforms.door, nodes.door],
   )
 
+  const openDoorForInspectionImmediate = useCallback(() => {
+    const target = nodes.door
+    const home = homeTransforms.door
+    if (!target || !home) return false
+    gsap.killTweensOf(target.position)
+    restoreHomeTransform(target, home)
+    const offset = localOffsetFromHome(home, {
+      z: CNC_MOTION_CALIBRATION.doorOpenDistance,
+    })
+    target.position.set(
+      home.position.x + offset.x,
+      home.position.y + offset.y,
+      home.position.z + offset.z,
+    )
+    target.updateMatrixWorld(true)
+    invalidate()
+    return true
+  }, [homeTransforms.door, invalidate, nodes.door])
+
   const operatorStartSpindle = useCallback(
     () =>
       new Promise<boolean>((resolve) => {
@@ -968,6 +988,7 @@ export function useCncMotionCalibration({
       resetDoor,
       resetAllAssemblies,
       operatorOpenDoor,
+      openDoorForInspectionImmediate,
       operatorStartSpindle,
       operatorEngageTailstock,
       operatorIndexTool,
@@ -996,6 +1017,7 @@ export function useCncMotionCalibration({
       operatorEngageTailstock,
       operatorIndexTool,
       operatorOpenDoor,
+      openDoorForInspectionImmediate,
       operatorReturnTurretHome,
       operatorStartSpindle,
       resetDoor,

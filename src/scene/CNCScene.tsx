@@ -14,6 +14,7 @@ import { VISUAL_CALIBRATION } from '../animation/visualCalibrationConfig'
 import type {
   CalibrationDirection,
   CncInspection,
+  CncProcessComparisonSnapshot,
   CncSequenceState,
   CncSequenceTelemetry,
 } from '../types/cnc'
@@ -70,6 +71,11 @@ export interface CNCSceneHandle {
   operatorCompletePass: () => Promise<boolean>
   operatorReset: () => Promise<boolean>
   getOperatorSpindleVisualRpm: () => number
+  enterProcessComparisonMode: () => Promise<boolean>
+  setProcessComparisonProgress: (progress: number) => void
+  resetProcessComparison: () => void
+  exitProcessComparisonMode: () => Promise<void>
+  getProcessComparisonSnapshot: () => CncProcessComparisonSnapshot
 }
 
 interface CNCSceneProps {
@@ -80,6 +86,7 @@ interface CNCSceneProps {
   cameraSpeedMultiplier: number
   scrollModeActive: boolean
   operatorModeActive: boolean
+  comparisonModeActive: boolean
 }
 
 export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCScene(
@@ -91,6 +98,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     cameraSpeedMultiplier,
     scrollModeActive,
     operatorModeActive,
+    comparisonModeActive,
   },
   ref,
 ) {
@@ -243,6 +251,50 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
       },
       getOperatorSpindleVisualRpm: () =>
         modelRef.current?.getChuckVisualRpm() ?? 0,
+      enterProcessComparisonMode: async () => {
+        choreography.pauseSequence()
+        cameraRigRef.current?.cancelTransition()
+        cameraRigRef.current?.setManualControlsEnabled(false)
+        coolantRef.current?.resetCoolant()
+        sparkRef.current?.resetSparks()
+        const model = modelRef.current
+        if (!model) return false
+        model.restoreAllImmediate()
+        const comparisonReady = model.beginWorkpieceComparison()
+        if (!comparisonReady) return false
+        model.setWorkpieceComparisonProgress(0)
+        cameraRigRef.current?.goToWaypoint('finishedInspectionStart', {
+          duration: 0,
+          lockControls: true,
+          releaseControls: false,
+        })
+        const doorReady = model.openDoorForInspectionImmediate()
+        if (!doorReady) model.endWorkpieceComparison('raw')
+        return doorReady
+      },
+      setProcessComparisonProgress: (progress) =>
+        modelRef.current?.setWorkpieceComparisonProgress(progress),
+      resetProcessComparison: () =>
+        modelRef.current?.setWorkpieceComparisonProgress(0),
+      exitProcessComparisonMode: async () => {
+        cameraRigRef.current?.cancelTransition()
+        coolantRef.current?.resetCoolant()
+        sparkRef.current?.resetSparks()
+        const model = modelRef.current
+        model?.endWorkpieceComparison('raw')
+        model?.restoreAllImmediate()
+        choreography.setSequenceProgress(1)
+      },
+      getProcessComparisonSnapshot: () =>
+        modelRef.current?.getWorkpieceComparisonSnapshot() ?? {
+          active: false,
+          progress: 0,
+          longitudinalAxis: null,
+          rawVisible: null,
+          finishedVisible: null,
+          clonedMaterialCount: 0,
+          clippingPlaneCount: 0,
+        },
     }),
     [choreography],
   )
@@ -267,6 +319,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
         gl.toneMapping = ACESFilmicToneMapping
         gl.toneMappingExposure = VISUAL_CALIBRATION.renderer.toneMappingExposure
         gl.outputColorSpace = SRGBColorSpace
+        gl.localClippingEnabled = true
         invalidate()
       }}
     >
@@ -285,7 +338,10 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
         interiorBounds={inspection?.interiorBounds ?? null}
         finishedWorkpieceBounds={inspection?.finishedWorkpieceBounds ?? null}
         cameraSpeedMultiplier={cameraSpeedMultiplier}
-        manualControlsLocked={scrollModeActive || operatorModeActive}
+        manualControlsLocked={
+          scrollModeActive || operatorModeActive || comparisonModeActive
+        }
+        exclusiveCameraOwnership={operatorModeActive || comparisonModeActive}
       />
       <CoolantEffect ref={coolantRef} />
       {import.meta.env.DEV ? (

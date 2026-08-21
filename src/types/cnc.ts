@@ -6,6 +6,24 @@ export type CncSequenceState = 'idle' | 'playing' | 'paused' | 'complete'
 
 export type CncWorkpieceState = 'raw' | 'finished'
 
+export type CncExperienceMode = 'content' | 'operator' | 'process-comparison'
+
+export type CncProcessComparisonState =
+  | 'inactive'
+  | 'entering'
+  | 'ready'
+  | 'exiting'
+
+export interface CncProcessComparisonSnapshot {
+  active: boolean
+  progress: number
+  longitudinalAxis: 'x' | 'y' | 'z' | null
+  rawVisible: boolean | null
+  finishedVisible: boolean | null
+  clonedMaterialCount: number
+  clippingPlaneCount: number
+}
+
 export interface CncSequenceTelemetry {
   spindleVisualRpm: number
   turretOffsetX: number

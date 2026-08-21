@@ -62,6 +62,7 @@ interface CameraRigProps {
   finishedWorkpieceBounds: Box3 | null
   cameraSpeedMultiplier: number
   manualControlsLocked: boolean
+  exclusiveCameraOwnership: boolean
 }
 
 interface CameraPreset {
@@ -121,6 +122,7 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
     finishedWorkpieceBounds,
     cameraSpeedMultiplier,
     manualControlsLocked,
+    exclusiveCameraOwnership,
   },
   ref,
 ) {
@@ -131,8 +133,10 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
   const transitionRef = useRef<gsap.core.Animation | null>(null)
   const cameraSpeedMultiplierRef = useRef(cameraSpeedMultiplier)
   const manualControlsLockedRef = useRef(manualControlsLocked)
+  const exclusiveCameraOwnershipRef = useRef(exclusiveCameraOwnership)
 
   manualControlsLockedRef.current = manualControlsLocked
+  exclusiveCameraOwnershipRef.current = exclusiveCameraOwnership
 
   useEffect(() => {
     if (controlsRef.current) controlsRef.current.enabled = !manualControlsLocked
@@ -693,7 +697,13 @@ export const CameraRig = forwardRef<CameraRigHandle, CameraRigProps>(function Ca
   )
 
   useEffect(() => {
-    if (!heroPreset || !(camera instanceof PerspectiveCamera)) return
+    if (
+      !heroPreset ||
+      !(camera instanceof PerspectiveCamera) ||
+      exclusiveCameraOwnershipRef.current
+    ) {
+      return
+    }
     goToWaypoint('hero', { duration: 0 })
   }, [camera, goToWaypoint, heroPreset])
 

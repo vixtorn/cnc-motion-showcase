@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import type { CNCSceneHandle } from '../scene/CNCScene'
 import type {
+  CncExperienceMode,
   CncOperatorState,
   CncOperatorTelemetry,
 } from '../types/cnc'
 
 interface UseCncOperatorModeOptions {
   sceneRef: RefObject<CNCSceneHandle | null>
+  canEnter: boolean
+  onExperienceModeChange: (mode: CncExperienceMode) => void
 }
 
 const TAILSTOCK_ENGAGED_STATES = new Set<CncOperatorState>([
@@ -27,7 +30,11 @@ const CUT_POSITION_STATES = new Set<CncOperatorState>([
   'coolant-active',
 ])
 
-export function useCncOperatorMode({ sceneRef }: UseCncOperatorModeOptions) {
+export function useCncOperatorMode({
+  sceneRef,
+  canEnter,
+  onExperienceModeChange,
+}: UseCncOperatorModeOptions) {
   const [isActive, setIsActive] = useState(false)
   const [state, setState] = useState<CncOperatorState>('inactive')
   const [spindleVisualRpm, setSpindleVisualRpm] = useState(0)
@@ -43,13 +50,14 @@ export function useCncOperatorMode({ sceneRef }: UseCncOperatorModeOptions) {
   }, [])
 
   const enter = useCallback(async () => {
-    if (activeRef.current || inFlightRef.current || !sceneRef.current) return
+    if (!canEnter || activeRef.current || inFlightRef.current || !sceneRef.current) return
     returnFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null
     generationRef.current += 1
     const generation = generationRef.current
     activeRef.current = true
     inFlightRef.current = true
+    onExperienceModeChange('operator')
     setIsActive(true)
     publishState('preparing')
     const completed = await sceneRef.current.enterOperatorMode()
@@ -62,7 +70,8 @@ export function useCncOperatorMode({ sceneRef }: UseCncOperatorModeOptions) {
     activeRef.current = false
     setIsActive(false)
     publishState('inactive')
-  }, [publishState, sceneRef])
+    onExperienceModeChange('content')
+  }, [canEnter, onExperienceModeChange, publishState, sceneRef])
 
   const exit = useCallback(async () => {
     if (!activeRef.current) return
@@ -77,9 +86,10 @@ export function useCncOperatorMode({ sceneRef }: UseCncOperatorModeOptions) {
     setSpindleVisualRpm(0)
     publishState('inactive')
     setIsActive(false)
+    onExperienceModeChange('content')
     const returnFocus = returnFocusRef.current
     requestAnimationFrame(() => returnFocus?.focus({ preventScroll: true }))
-  }, [publishState, sceneRef])
+  }, [onExperienceModeChange, publishState, sceneRef])
 
   const reset = useCallback(async () => {
     if (!activeRef.current) return

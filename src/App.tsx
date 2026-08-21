@@ -9,16 +9,20 @@ import { LoadingScreen } from './components/LoadingScreen'
 import { ModelErrorBoundary } from './components/ModelErrorBoundary'
 import { OperatorPanel } from './components/OperatorPanel'
 import { PostCinematicIntro } from './components/PostCinematicIntro'
+import { ProcessComparisonPanel } from './components/ProcessComparisonPanel'
 import { RunTheMachine } from './components/RunTheMachine'
+import { StockToFinished } from './components/StockToFinished'
 import {
   CNC_SCROLL,
   useCncScrollDriver,
   type CncScrollDiagnostics,
 } from './hooks/useCncScrollDriver'
 import { useCncOperatorMode } from './hooks/useCncOperatorMode'
+import { useCncProcessComparison } from './hooks/useCncProcessComparison'
 import { CNCScene, type CNCSceneHandle } from './scene/CNCScene'
 import type {
   CalibrationDirection,
+  CncExperienceMode,
   CncInspection,
   CncSequenceState,
 } from './types/cnc'
@@ -43,7 +47,17 @@ function App() {
   const [cameraSpeedMultiplier, setCameraSpeedMultiplier] = useState<number>(
     CNC_CHOREOGRAPHY.cameraSpeed.defaultMultiplier,
   )
-  const operator = useCncOperatorMode({ sceneRef })
+  const [experienceMode, setExperienceMode] = useState<CncExperienceMode>('content')
+  const operator = useCncOperatorMode({
+    sceneRef,
+    canEnter: experienceMode === 'content',
+    onExperienceModeChange: setExperienceMode,
+  })
+  const comparison = useCncProcessComparison({
+    sceneRef,
+    canEnter: experienceMode === 'content',
+    onExperienceModeChange: setExperienceMode,
+  })
 
   const handleInspection = useCallback((nextInspection: CncInspection) => {
     setInspection(nextInspection)
@@ -77,7 +91,8 @@ function App() {
 
   useCncScrollDriver({
     containerRef: cinematicScrollRef,
-    enabled: Boolean(inspection) && scrollDriverEnabled && !operator.isActive,
+    enabled:
+      Boolean(inspection) && scrollDriverEnabled && experienceMode === 'content',
     onProgress: handleScrollProgress,
     onDiagnostics: setScrollDiagnostics,
   })
@@ -95,7 +110,9 @@ function App() {
         aria-label="Scroll-driven CNC cinematic"
       >
         <div
-          className={`cinematic-stage${operator.isActive ? ' is-operator-active' : ''}`}
+          className={`cinematic-stage${
+            operator.isActive ? ' is-operator-active' : ''
+          }${comparison.isActive ? ' is-comparison-active' : ''}`}
         >
           <section className="viewport" aria-label="Interactive CNC model">
             <ModelErrorBoundary>
@@ -106,8 +123,11 @@ function App() {
                 onSequenceProgressChange={setSequenceProgress}
                 onSequenceTelemetryChange={setSequenceTelemetry}
                 cameraSpeedMultiplier={cameraSpeedMultiplier}
-                scrollModeActive={scrollDriverEnabled && !operator.isActive}
+                scrollModeActive={
+                  scrollDriverEnabled && experienceMode === 'content'
+                }
                 operatorModeActive={operator.isActive}
+                comparisonModeActive={comparison.isActive}
               />
             </ModelErrorBoundary>
             <LoadingScreen />
@@ -134,7 +154,17 @@ function App() {
             />
           ) : null}
 
-          {import.meta.env.DEV && !operator.isActive ? (
+          {comparison.isActive ? (
+            <ProcessComparisonPanel
+              state={comparison.state}
+              progress={comparison.progress}
+              onProgressChange={comparison.setProgress}
+              onReset={comparison.reset}
+              onExit={comparison.exit}
+            />
+          ) : null}
+
+          {import.meta.env.DEV && experienceMode === 'content' ? (
             <DevPanel
               inspection={inspection}
               isChuckTesting={isChuckTesting}
@@ -204,7 +234,14 @@ function App() {
       </section>
 
       <PostCinematicIntro />
-      <RunTheMachine ready={Boolean(inspection)} onEnter={operator.enter} />
+      <RunTheMachine
+        ready={Boolean(inspection) && experienceMode === 'content'}
+        onEnter={operator.enter}
+      />
+      <StockToFinished
+        ready={Boolean(inspection) && experienceMode === 'content'}
+        onEnter={comparison.enter}
+      />
     </main>
   )
 }
