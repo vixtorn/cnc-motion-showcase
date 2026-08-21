@@ -12,6 +12,7 @@ import { ACESFilmicToneMapping, SRGBColorSpace } from 'three'
 import type { CncAxis } from '../animation/cncAnimationConfig'
 import { useCncChoreography } from '../animation/useCncChoreography'
 import { VISUAL_CALIBRATION } from '../animation/visualCalibrationConfig'
+import { getRendererDprProfile } from '../config/renderQuality'
 import type {
   CalibrationDirection,
   CncAnatomyComponentId,
@@ -123,6 +124,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
   const sparkRef = useRef<SparkEffectHandle>(null)
   const [inspection, setInspection] = useState<CncInspection | null>(null)
   const [anatomyHoveredId, setAnatomyHoveredId] = useState<CncAnatomyComponentId | null>(null)
+  const [rendererDpr, setRendererDpr] = useState(() => getRendererDprProfile(window.innerWidth))
   const choreography = useCncChoreography({
     motionRef: modelRef,
     cameraRef: cameraRigRef,
@@ -355,11 +357,23 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     if (!anatomyModeActive) setAnatomyHoveredId(null)
   }, [anatomyModeActive])
 
+  useEffect(() => {
+    const updateRendererDpr = () => {
+      const nextDpr = getRendererDprProfile(window.innerWidth)
+      setRendererDpr((currentDpr) =>
+        currentDpr[0] === nextDpr[0] && currentDpr[1] === nextDpr[1] ? currentDpr : nextDpr,
+      )
+    }
+
+    window.addEventListener('resize', updateRendererDpr)
+    return () => window.removeEventListener('resize', updateRendererDpr)
+  }, [])
+
   return (
     <Canvas
       className="scene-canvas"
       style={{ touchAction: 'pan-y' }}
-      dpr={VISUAL_CALIBRATION.renderer.dpr}
+      dpr={rendererDpr}
       frameloop="demand"
       camera={{ fov: VISUAL_CALIBRATION.camera.fov, near: 0.1, far: 10000 }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
