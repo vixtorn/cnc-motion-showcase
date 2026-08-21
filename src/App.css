@@ -1270,6 +1270,35 @@
   opacity: 0.38;
 }
 
+.scroll-pacing-control {
+  display: grid;
+  grid-template-columns: 1fr 3.25rem 3.5rem 3.25rem;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.scroll-pacing-control > span,
+.scroll-pacing-control output {
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.scroll-pacing-control output {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.scroll-pacing-range {
+  display: block;
+}
+
+.scroll-pacing-range input {
+  width: 100%;
+  margin: 0;
+  accent-color: #30332f;
+}
+
 /* Phase 3D: progress-derived chapters and canonical simulation telemetry. */
 .cinematic-narrative {
   position: absolute;

@@ -8,6 +8,7 @@ import type {
 } from '../types/cnc'
 import type { CameraWaypointName } from '../scene/CameraRig'
 import type { CncScrollDiagnostics } from '../hooks/useCncScrollDriver'
+import { CNC_SCROLL } from '../hooks/useCncScrollDriver'
 
 interface DevPanelProps {
   inspection: CncInspection | null
@@ -16,6 +17,10 @@ interface DevPanelProps {
   sequenceProgress: number
   scrollDriverEnabled: boolean
   scrollDiagnostics: CncScrollDiagnostics
+  scrollPacing: number
+  scrollLength: number
+  smoothScrollEnabled: boolean
+  smoothScrollActive: boolean
   cameraSpeedMultiplier: number
   onCameraSpeedMultiplierChange: (multiplier: number) => void
   onPrintAudit: () => void
@@ -47,6 +52,8 @@ interface DevPanelProps {
   onResetSequence: () => void
   onSequenceProgressChange: (progress: number) => void
   onScrollDriverEnabledChange: (enabled: boolean) => void
+  onScrollPacingChange: (pacing: number) => void
+  onSmoothScrollEnabledChange: (enabled: boolean) => void
 }
 
 const NODE_LABELS: Array<[NodeCheckKey, string]> = [
@@ -70,6 +77,10 @@ export function DevPanel({
   sequenceProgress,
   scrollDriverEnabled,
   scrollDiagnostics,
+  scrollPacing,
+  scrollLength,
+  smoothScrollEnabled,
+  smoothScrollActive,
   cameraSpeedMultiplier,
   onCameraSpeedMultiplierChange,
   onPrintAudit,
@@ -101,6 +112,8 @@ export function DevPanel({
   onResetSequence,
   onSequenceProgressChange,
   onScrollDriverEnabledChange,
+  onScrollPacingChange,
+  onSmoothScrollEnabledChange,
 }: DevPanelProps) {
   const checks = inspection?.checks
   const diagnosticsDisabled = sequenceState === 'playing' || sequenceState === 'paused'
@@ -114,6 +127,11 @@ export function DevPanel({
       ),
     )
     onCameraSpeedMultiplierChange(Number(nextMultiplier.toFixed(2)))
+  }
+  const updateScrollPacing = (direction: -1 | 1) => {
+    onScrollPacingChange(
+      Number((scrollPacing + direction * CNC_SCROLL.pacingStep).toFixed(2)),
+    )
   }
 
   return (
@@ -157,6 +175,14 @@ export function DevPanel({
           >
             [ SCROLL DRIVER: {scrollDriverEnabled ? 'ON' : 'OFF'} ]
           </button>
+          <button
+            type="button"
+            className={smoothScrollActive ? 'is-active' : ''}
+            aria-pressed={smoothScrollEnabled}
+            onClick={() => onSmoothScrollEnabledChange(!smoothScrollEnabled)}
+          >
+            [ SMOOTH SCROLL: {smoothScrollEnabled ? 'ON' : 'OFF'} ]
+          </button>
           <dl className="scroll-diagnostics">
             <div>
               <dt>RAW SCROLL</dt>
@@ -170,7 +196,46 @@ export function DevPanel({
               <dt>SEQUENCE</dt>
               <dd>{(sequenceProgress * 100).toFixed(1)}%</dd>
             </div>
+            <div>
+              <dt>SCROLL PACING</dt>
+              <dd>{scrollPacing.toFixed(2)}x</dd>
+            </div>
+            <div>
+              <dt>SCROLL LENGTH</dt>
+              <dd>{scrollLength.toFixed(1)} VIEWPORTS</dd>
+            </div>
           </dl>
+          <div className="scroll-pacing-control">
+            <span>SCROLL PACING</span>
+            <button
+              type="button"
+              aria-label="Decrease scroll pacing"
+              disabled={scrollPacing <= CNC_SCROLL.minimumPacing}
+              onClick={() => updateScrollPacing(-1)}
+            >
+              [ - ]
+            </button>
+            <output aria-live="polite">{scrollPacing.toFixed(2)}x</output>
+            <button
+              type="button"
+              aria-label="Increase scroll pacing"
+              disabled={scrollPacing >= CNC_SCROLL.maximumPacing}
+              onClick={() => updateScrollPacing(1)}
+            >
+              [ + ]
+            </button>
+          </div>
+          <label className="scroll-pacing-range">
+            <span className="sr-only">Scroll pacing multiplier</span>
+            <input
+              type="range"
+              min={CNC_SCROLL.minimumPacing}
+              max={CNC_SCROLL.maximumPacing}
+              step={CNC_SCROLL.pacingStep}
+              value={scrollPacing}
+              onInput={(event) => onScrollPacingChange(Number(event.currentTarget.value))}
+            />
+          </label>
           <div className="calibration-actions">
             <button
               type="button"

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import type { CncAxis } from './animation/cncAnimationConfig'
 import { CNC_CHOREOGRAPHY } from './animation/cncChoreographyConfig'
@@ -14,11 +14,13 @@ import { RunTheMachine } from './components/RunTheMachine'
 import { StockToFinished } from './components/StockToFinished'
 import {
   CNC_SCROLL,
+  getCinematicViewportHeights,
   useCncScrollDriver,
   type CncScrollDiagnostics,
 } from './hooks/useCncScrollDriver'
 import { useCncOperatorMode } from './hooks/useCncOperatorMode'
 import { useCncProcessComparison } from './hooks/useCncProcessComparison'
+import { useSmoothScroll } from './hooks/useSmoothScroll'
 import { CNCScene, type CNCSceneHandle } from './scene/CNCScene'
 import type {
   CalibrationDirection,
@@ -31,6 +33,7 @@ import { INITIAL_CNC_SEQUENCE_TELEMETRY } from './types/cnc'
 function App() {
   const sceneRef = useRef<CNCSceneHandle>(null)
   const cinematicScrollRef = useRef<HTMLElement>(null)
+  const pacingReconciliationFrame = useRef<number | null>(null)
   const [inspection, setInspection] = useState<CncInspection | null>(null)
   const [isChuckTesting, setIsChuckTesting] = useState(false)
   const [sequenceState, setSequenceState] = useState<CncSequenceState>('idle')
@@ -39,6 +42,17 @@ function App() {
     INITIAL_CNC_SEQUENCE_TELEMETRY,
   )
   const [scrollDriverEnabled, setScrollDriverEnabled] = useState(true)
+  const [scrollPacing, setScrollPacing] = useState(() => {
+    if (!import.meta.env.DEV) return CNC_SCROLL.defaultPacing
+
+    const stored = Number(window.localStorage.getItem('cnc-dev-scroll-pacing'))
+    return Number.isFinite(stored) &&
+      stored >= CNC_SCROLL.minimumPacing &&
+      stored <= CNC_SCROLL.maximumPacing
+      ? stored
+      : CNC_SCROLL.defaultPacing
+  })
+  const [smoothScrollEnabled, setSmoothScrollEnabled] = useState(true)
   const [scrollDiagnostics, setScrollDiagnostics] = useState<CncScrollDiagnostics>({
     raw: 0,
     target: 0,
@@ -58,6 +72,19 @@ function App() {
     canEnter: experienceMode === 'content',
     onExperienceModeChange: setExperienceMode,
   })
+  const smoothScroll = useSmoothScroll({
+    enabled: smoothScrollEnabled,
+    suspended: experienceMode !== 'content',
+  })
+
+  useEffect(
+    () => () => {
+      if (pacingReconciliationFrame.current !== null) {
+        window.cancelAnimationFrame(pacingReconciliationFrame.current)
+      }
+    },
+    [],
+  )
 
   const handleInspection = useCallback((nextInspection: CncInspection) => {
     setInspection(nextInspection)
@@ -89,6 +116,49 @@ function App() {
     sceneRef.current?.setSequenceProgress(progress)
   }, [])
 
+  const handleScrollPacingChange = useCallback(
+    (nextPacing: number) => {
+      const section = cinematicScrollRef.current
+      const clampedPacing = Math.min(
+        CNC_SCROLL.maximumPacing,
+        Math.max(CNC_SCROLL.minimumPacing, nextPacing),
+      )
+      const roundedPacing = Number(clampedPacing.toFixed(2))
+
+      if (!section || roundedPacing === scrollPacing) return
+
+      const sectionStart = section.getBoundingClientRect().top + window.scrollY
+      const previousDistance =
+        (getCinematicViewportHeights(scrollPacing) - 1) * window.innerHeight
+      const nextHeight = getCinematicViewportHeights(roundedPacing)
+      const nextDistance = (nextHeight - 1) * window.innerHeight
+      const currentScrollY = window.scrollY
+      const canonicalProgress = Math.min(1, Math.max(0, sequenceProgress))
+      const previousSectionEnd = sectionStart + previousDistance
+      const nextScrollY =
+        currentScrollY >= sectionStart && currentScrollY <= previousSectionEnd
+          ? sectionStart + canonicalProgress * nextDistance
+          : currentScrollY > previousSectionEnd
+            ? currentScrollY + (nextDistance - previousDistance)
+            : currentScrollY
+
+      section.style.setProperty('--cinematic-scroll-height', `${nextHeight * 100}svh`)
+      setScrollPacing(roundedPacing)
+      if (import.meta.env.DEV) {
+        window.localStorage.setItem('cnc-dev-scroll-pacing', String(roundedPacing))
+      }
+
+      if (pacingReconciliationFrame.current !== null) {
+        window.cancelAnimationFrame(pacingReconciliationFrame.current)
+      }
+      pacingReconciliationFrame.current = window.requestAnimationFrame(() => {
+        smoothScroll.scrollToImmediate(nextScrollY)
+        pacingReconciliationFrame.current = null
+      })
+    },
+    [scrollPacing, sequenceProgress, smoothScroll],
+  )
+
   useCncScrollDriver({
     containerRef: cinematicScrollRef,
     enabled:
@@ -98,7 +168,7 @@ function App() {
   })
 
   const cinematicScrollStyle = {
-    '--cinematic-scroll-height': `${CNC_SCROLL.totalViewportHeights * 100}svh`,
+    '--cinematic-scroll-height': `${getCinematicViewportHeights(scrollPacing) * 100}svh`,
   } as CSSProperties
 
   return (
@@ -172,6 +242,10 @@ function App() {
               sequenceProgress={sequenceProgress}
               scrollDriverEnabled={scrollDriverEnabled}
               scrollDiagnostics={scrollDiagnostics}
+              scrollPacing={scrollPacing}
+              scrollLength={getCinematicViewportHeights(scrollPacing)}
+              smoothScrollEnabled={smoothScrollEnabled}
+              smoothScrollActive={smoothScroll.isActive}
               cameraSpeedMultiplier={cameraSpeedMultiplier}
               onCameraSpeedMultiplierChange={setCameraSpeedMultiplier}
               onPrintAudit={() => inspection?.printAudit()}
@@ -228,6 +302,8 @@ function App() {
                 sceneRef.current?.setSequenceProgress(progress)
               }}
               onScrollDriverEnabledChange={setScrollDriverEnabled}
+              onScrollPacingChange={handleScrollPacingChange}
+              onSmoothScrollEnabledChange={setSmoothScrollEnabled}
             />
           ) : null}
         </div>

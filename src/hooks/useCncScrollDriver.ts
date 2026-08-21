@@ -2,12 +2,26 @@ import { useEffect, useRef } from 'react'
 import { prefersReducedMotion } from '../animation/motionPreferences'
 
 export const CNC_SCROLL = {
-  totalViewportHeights: 8,
+  baseViewportHeights: 8,
+  defaultPacing: 0.4,
+  minimumPacing: 0.25,
+  maximumPacing: 1,
+  pacingStep: 0.05,
   responsiveness: 10,
   convergenceEpsilon: 0.0001,
   endpointEpsilon: 0.0001,
   diagnosticsIntervalMs: 100,
 } as const
+
+export const getCinematicViewportHeights = (pacing: number) => {
+  const clampedPacing = Math.min(
+    CNC_SCROLL.maximumPacing,
+    Math.max(CNC_SCROLL.minimumPacing, pacing),
+  )
+  const baseScrollTravel = CNC_SCROLL.baseViewportHeights - 1
+
+  return 1 + baseScrollTravel / clampedPacing
+}
 
 export interface CncScrollDiagnostics {
   raw: number
