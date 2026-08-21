@@ -378,6 +378,10 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
       camera={{ fov: VISUAL_CALIBRATION.camera.fov, near: 0.1, far: 10000 }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       onCreated={({ gl, invalidate }) => {
+        // WebGL program diagnostics remain available during development. Some
+        // drivers emit non-fatal compiler information logs for valid shaders,
+        // which should not surface in the production console.
+        gl.debug.checkShaderErrors = import.meta.env.DEV
         gl.toneMapping = ACESFilmicToneMapping
         gl.toneMappingExposure = VISUAL_CALIBRATION.renderer.toneMappingExposure
         gl.outputColorSpace = SRGBColorSpace

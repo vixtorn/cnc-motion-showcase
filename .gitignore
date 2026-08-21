@@ -32,3 +32,6 @@ dist-ssr
 *.blend
 *.blend1
 *.blend2
+
+# Local camera-calibration reference captures
+camera-references/
