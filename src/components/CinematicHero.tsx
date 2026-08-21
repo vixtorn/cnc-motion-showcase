@@ -48,6 +48,9 @@ export function CinematicHero({ progress, active }: CinematicHeroProps) {
         >
           EMİR DUMAN
         </a>
+        <a className="hero-contact" href="mailto:emirduman90@gmail.com">
+          CONTACT
+        </a>
       </div>
 
       <div className="hero-title-block">
