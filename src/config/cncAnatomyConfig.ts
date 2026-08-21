@@ -96,9 +96,9 @@ export const CNC_ANATOMY_COMPONENTS: readonly AnatomyComponentDefinition[] = [
     description: 'Opens to reveal the work envelope for inspection and the simulated machining sequence.',
     facts: [{ label: 'STATE', value: 'OPEN FOR INSPECTION' }],
     camera: {
-      position: [54, 132, 60],
-      target: [-12, 113, 78],
-      fov: 54,
+    position: [100, 138, 60],
+    target: [16, 116, 74],
+    fov: 46,
     },
     getNode: (nodes) => nodes.door,
   },
