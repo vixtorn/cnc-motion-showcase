@@ -5,6 +5,7 @@ import { CNC_CHOREOGRAPHY } from './animation/cncChoreographyConfig'
 import { CinematicHero } from './components/CinematicHero'
 import { CinematicNarrative } from './components/CinematicNarrative'
 import { DevPanel } from './components/DevPanel'
+import { EngineeringExperience } from './components/EngineeringExperience'
 import { LoadingScreen } from './components/LoadingScreen'
 import { MachineAnatomy } from './components/MachineAnatomy'
 import { ModelErrorBoundary } from './components/ModelErrorBoundary'
@@ -344,6 +345,7 @@ function App() {
         ready={Boolean(inspection) && experienceMode === 'content'}
         onEnter={anatomy.enter}
       />
+      <EngineeringExperience />
     </main>
   )
 }
