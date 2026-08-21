@@ -1,5 +1,5 @@
 import type { CncAnatomyComponentId, CncNodes } from '../types/cnc'
-import type { Object3D } from 'three'
+import { Mesh, type Object3D } from 'three'
 
 export interface AnatomyCameraPreset {
   position: readonly [number, number, number]
@@ -15,7 +15,20 @@ export interface AnatomyComponentDefinition {
   facts: readonly { label: string; value: string }[]
   camera: AnatomyCameraPreset
   getNode: (nodes: CncNodes) => Object3D | null
+  getInteractionExclusions?: (nodes: CncNodes) => readonly (Object3D | null)[]
 }
+
+export const ANATOMY_INTERACTION_COLORS = {
+  idle: '#D9953F',
+  hovered: '#FFC266',
+  selected: '#F0A64A',
+} as const
+
+export const ANATOMY_OUTLINE_THICKNESS = {
+  idle: 1.1,
+  hovered: 1.65,
+  selected: 2,
+} as const
 
 export const CNC_ANATOMY_COMPONENTS: readonly AnatomyComponentDefinition[] = [
   {
@@ -30,6 +43,7 @@ export const CNC_ANATOMY_COMPONENTS: readonly AnatomyComponentDefinition[] = [
       fov: 48,
     },
     getNode: (nodes) => nodes.mainChuck,
+    getInteractionExclusions: (nodes) => [nodes.workpiece, nodes.finishedWorkpiece],
   },
   {
     id: 'turret',
@@ -92,3 +106,34 @@ export const CNC_ANATOMY_COMPONENTS: readonly AnatomyComponentDefinition[] = [
 
 export const getAnatomyComponent = (id: CncAnatomyComponentId) =>
   CNC_ANATOMY_COMPONENTS.find((component) => component.id === id) ?? null
+
+const isDescendantOf = (child: Object3D, parent: Object3D) => {
+  let current: Object3D | null = child
+  while (current) {
+    if (current === parent) return true
+    current = current.parent
+  }
+  return false
+}
+
+export const getAnatomyComponentMeshes = (
+  component: AnatomyComponentDefinition,
+  nodes: CncNodes,
+) => {
+  const root = component.getNode(nodes)
+  if (!root) return []
+
+  const exclusions = component
+    .getInteractionExclusions?.(nodes)
+    .filter((node): node is Object3D => node !== null) ?? []
+  const meshes: Mesh[] = []
+  root.traverse((object) => {
+    if (
+      object instanceof Mesh &&
+      !exclusions.some((excluded) => isDescendantOf(object, excluded))
+    ) {
+      meshes.push(object)
+    }
+  })
+  return meshes
+}

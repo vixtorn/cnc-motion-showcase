@@ -3,6 +3,7 @@ import {
   forwardRef,
   Suspense,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useRef,
   useState,
@@ -30,6 +31,7 @@ import { SceneLighting } from './SceneLighting'
 import { CoolantEffect, type CoolantEffectHandle } from '../effects/CoolantEffect'
 import { SparkEffect, type SparkEffectHandle } from '../effects/SparkEffect'
 import { AnatomyHotspots } from './AnatomyHotspots'
+import { AnatomyInteractionLayer } from './AnatomyInteractionLayer'
 
 export interface CNCSceneHandle {
   resetCamera: () => void
@@ -120,6 +122,7 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
   const coolantRef = useRef<CoolantEffectHandle>(null)
   const sparkRef = useRef<SparkEffectHandle>(null)
   const [inspection, setInspection] = useState<CncInspection | null>(null)
+  const [anatomyHoveredId, setAnatomyHoveredId] = useState<CncAnatomyComponentId | null>(null)
   const choreography = useCncChoreography({
     motionRef: modelRef,
     cameraRef: cameraRigRef,
@@ -348,6 +351,10 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
     [onInspection],
   )
 
+  useEffect(() => {
+    if (!anatomyModeActive) setAnatomyHoveredId(null)
+  }, [anatomyModeActive])
+
   return (
     <Canvas
       className="scene-canvas"
@@ -373,11 +380,20 @@ export const CNCScene = forwardRef<CNCSceneHandle, CNCSceneProps>(function CNCSc
         />
       </Suspense>
       {anatomyModeActive && inspection ? (
-        <AnatomyHotspots
-          inspection={inspection}
-          selectedId={anatomySelectedId}
-          onSelect={onAnatomyComponentSelect}
-        />
+        <>
+          <AnatomyInteractionLayer
+            inspection={inspection}
+            selectedId={anatomySelectedId}
+            hoveredId={anatomyHoveredId}
+            onHoverChange={setAnatomyHoveredId}
+            onSelect={onAnatomyComponentSelect}
+          />
+          <AnatomyHotspots
+            inspection={inspection}
+            selectedId={anatomySelectedId}
+            onSelect={onAnatomyComponentSelect}
+          />
+        </>
       ) : null}
       <CameraRig
         ref={cameraRigRef}
